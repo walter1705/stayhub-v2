@@ -6,8 +6,10 @@ import edu.uniquindio.stayhub_v2.dto.auth.ResetPasswordRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.auth.TokenResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.auth.ChangePasswordRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.user.UserLoginRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.user.UserMeResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.user.UserSignupRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.user.UserSignupResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.user.UserUpdateRequestDTO;
 import edu.uniquindio.stayhub_v2.service.UserService;
 import edu.uniquindio.stayhub_v2.service.JWTService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,6 +25,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -182,5 +187,55 @@ public class UserController {
         String requesterEmail = jwtService.getEmailFromToken(token);
         userService.changePassword(requesterEmail, requestDTO);
         return new ResponseEntity<>(new MessageResponseDTO("Contraseña cambiada exitosamente"), HttpStatus.OK);
+    }
+
+    @Operation(summary = "Get my profile", description = "Returns the authenticated user's profile")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User profile",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = UserMeResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = edu.uniquindio.stayhub_v2.dto.auth.Error.class)))
+    })
+    @GetMapping("/me")
+    public ResponseEntity<UserMeResponseDTO> getMyProfile() {
+        log.info("GET /users/me - fetching authenticated user profile");
+        return ResponseEntity.ok(userService.getMyProfile());
+    }
+
+    @Operation(summary = "Update my profile", description = "Partially updates the authenticated user's profile (fullName, phoneNumber, profilePicture)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Updated profile",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = UserMeResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Validation error",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = edu.uniquindio.stayhub_v2.dto.auth.Error.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = edu.uniquindio.stayhub_v2.dto.auth.Error.class)))
+    })
+    @PatchMapping("/me")
+    public ResponseEntity<UserMeResponseDTO> updateMyProfile(
+            @Valid @RequestBody UserUpdateRequestDTO requestDTO) {
+        log.info("PATCH /users/me - updating authenticated user profile");
+        return ResponseEntity.ok(userService.updateMyProfile(requestDTO));
+    }
+
+    @Operation(summary = "Deactivate my account", description = "Soft-deletes the authenticated user's account")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Account deactivated",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = MessageResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = edu.uniquindio.stayhub_v2.dto.auth.Error.class)))
+    })
+    @DeleteMapping("/me")
+    public ResponseEntity<MessageResponseDTO> deactivateMyAccount() {
+        log.info("DELETE /users/me - deactivating authenticated user account");
+        userService.deactivateMyAccount();
+        return ResponseEntity.ok(new MessageResponseDTO("Cuenta desactivada exitosamente"));
     }
 }

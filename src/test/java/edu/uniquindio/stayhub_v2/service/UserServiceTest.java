@@ -5,20 +5,27 @@ import edu.uniquindio.stayhub_v2.dto.auth.ResetPasswordRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.auth.TokenResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.auth.ChangePasswordRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.user.UserLoginRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.user.UserMeResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.user.UserUpdateRequestDTO;
 import edu.uniquindio.stayhub_v2.exception.InvalidPasswordException;
 import edu.uniquindio.stayhub_v2.exception.InvalidRecoveryCodeException;
 import edu.uniquindio.stayhub_v2.exception.UserNotFoundException;
 import edu.uniquindio.stayhub_v2.mapper.UserMapper;
+import edu.uniquindio.stayhub_v2.model.Role;
 import edu.uniquindio.stayhub_v2.model.User;
 import edu.uniquindio.stayhub_v2.repository.UserRepository;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -59,6 +66,19 @@ public class UserServiceTest {
                 .password("encoded_password")
                 .fullName("Test User")
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void authenticateAs(String email) {
+        UserDetails userDetails = org.springframework.security.core.userdetails.User
+                .withUsername(email).password("encoded").roles("GUEST").build();
+        UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     @Test
@@ -212,6 +232,49 @@ public class UserServiceTest {
         Set<ConstraintViolation<ChangePasswordRequestDTO>> violations = validator.validate(dto);
 
         assertThat(violations).isNotEmpty();
+    }
+
+    @Test
+    void getMyProfile_AuthenticatedUser_ReturnsMappedDTO() {
+        authenticateAs("test@mail.com");
+        UserMeResponseDTO expected = new UserMeResponseDTO(
+                1L, "Test User", "test@mail.com", null,
+                Set.of(Role.GUEST), "+573101234567", null, null, null);
+        when(userRepository.findByEmail("test@mail.com")).thenReturn(Optional.of(testUser));
+        when(userMapper.toMeResponseDTO(testUser)).thenReturn(expected);
+
+        UserMeResponseDTO result = userService.getMyProfile();
+
+        assertThat(result).isEqualTo(expected);
+        verify(userMapper).toMeResponseDTO(testUser);
+    }
+
+    @Test
+    void updateMyProfile_ValidRequest_SavesAndReturnsMappedDTO() {
+        authenticateAs("test@mail.com");
+        UserUpdateRequestDTO request = new UserUpdateRequestDTO("New Name", null, null);
+        UserMeResponseDTO expected = new UserMeResponseDTO(
+                1L, "New Name", "test@mail.com", null,
+                Set.of(Role.GUEST), "+573101234567", null, null, null);
+        when(userRepository.findByEmail("test@mail.com")).thenReturn(Optional.of(testUser));
+        when(userRepository.save(testUser)).thenReturn(testUser);
+        when(userMapper.toMeResponseDTO(testUser)).thenReturn(expected);
+
+        UserMeResponseDTO result = userService.updateMyProfile(request);
+
+        assertThat(result.fullName()).isEqualTo("New Name");
+        verify(userRepository).save(testUser);
+    }
+
+    @Test
+    void deactivateMyAccount_AuthenticatedUser_SoftDeletesUser() {
+        authenticateAs("test@mail.com");
+        when(userRepository.findByEmail("test@mail.com")).thenReturn(Optional.of(testUser));
+
+        userService.deactivateMyAccount();
+
+        assertThat(testUser.isDeleted()).isTrue();
+        verify(userRepository).save(testUser);
     }
 
 }

@@ -1,9 +1,14 @@
 package edu.uniquindio.stayhub_v2.mapper;
 
+import edu.uniquindio.stayhub_v2.dto.user.UserMeResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.user.UserSignupRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.user.UserSignupResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.user.UserUpdateRequestDTO;
 import edu.uniquindio.stayhub_v2.model.User;
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 
 /**
  * Mapper interface for converting between User entities and DTOs.
@@ -49,7 +54,10 @@ import org.mapstruct.Mapper;
  * @see UserSignupRequestDTO
  * @see UserSignupResponseDTO
  */
-@Mapper(componentModel = "spring")
+@Mapper(
+        componentModel = "spring",
+        builder = @org.mapstruct.Builder(disableBuilder = true)
+)
 public interface UserMapper {
 
     /**
@@ -99,4 +107,9 @@ public interface UserMapper {
      * @return UserSignupResponseDTO containing safe, non-sensitive user data
      */
     UserSignupResponseDTO toSignupResponseDTO(User user);
+
+    UserMeResponseDTO toMeResponseDTO(User user);
+
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    void updateUserFromDto(UserUpdateRequestDTO dto, @MappingTarget User user);
 }

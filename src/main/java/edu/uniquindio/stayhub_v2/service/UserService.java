@@ -3,11 +3,14 @@ package edu.uniquindio.stayhub_v2.service;
 import edu.uniquindio.stayhub_v2.config.JwtAuthenticationFilter;
 import edu.uniquindio.stayhub_v2.dto.auth.ChangePasswordRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.auth.ForgotPasswordRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.auth.MessageResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.auth.ResetPasswordRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.auth.TokenResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.user.UserLoginRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.user.UserMeResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.user.UserSignupRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.user.UserSignupResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.user.UserUpdateRequestDTO;
 import edu.uniquindio.stayhub_v2.exception.EmailAlreadyExistsException;
 import edu.uniquindio.stayhub_v2.exception.InvalidPasswordException;
 import edu.uniquindio.stayhub_v2.exception.InvalidRecoveryCodeException;
@@ -493,6 +496,29 @@ public class UserService {
                 Saludos,
                 El equipo de StayHub 🏡
                \s""", fullName, code);
+    }
+
+    @Transactional(readOnly = true)
+    public UserMeResponseDTO getMyProfile() {
+        User user = getCurrentUser();
+        return userMapper.toMeResponseDTO(user);
+    }
+
+    @Transactional
+    public UserMeResponseDTO updateMyProfile(@Valid UserUpdateRequestDTO requestDTO) {
+        User user = getCurrentUser();
+        userMapper.updateUserFromDto(requestDTO, user);
+        User saved = userRepository.save(user);
+        log.info("Profile updated for user: {}", saved.getEmail());
+        return userMapper.toMeResponseDTO(saved);
+    }
+
+    @Transactional
+    public void deactivateMyAccount() {
+        User user = getCurrentUser();
+        user.setDeleted(true);
+        userRepository.save(user);
+        log.info("Account deactivated for user: {}", user.getEmail());
     }
 
     @Transactional
