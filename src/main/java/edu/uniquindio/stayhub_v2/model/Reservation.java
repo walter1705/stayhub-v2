@@ -275,4 +275,17 @@ public class Reservation extends Auditable {
     @Column(nullable = false)
     @Builder.Default
     private Boolean depositPaid = false;
+
+    /**
+     * Unique human-readable booking reference, e.g. SH-2026-000001.
+     * Generated after first save.
+     */
+    @Column(unique = true)
+    private String bookingNumber;
+
+    /**
+     * Optional reason provided when the reservation is cancelled.
+     */
+    @Column(length = 300)
+    private String cancellationReason;
 }

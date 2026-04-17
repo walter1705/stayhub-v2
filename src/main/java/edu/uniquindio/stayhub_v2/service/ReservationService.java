@@ -1,7 +1,10 @@
 package edu.uniquindio.stayhub_v2.service;
 
+import edu.uniquindio.stayhub_v2.dto.reservation.CancelReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.CreateReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.CreateReservationResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.reservation.DepositPaymentReportRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.reservation.ReservationPaymentSummaryDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.RetrieveReservationResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.RetrieveReservationSummaryResponseDTO;
 import edu.uniquindio.stayhub_v2.event.ReservationCreatedEvent;
@@ -527,5 +530,102 @@ public class ReservationService {
 
         // 4. Map each Reservation entity to the summary DTO and return the page
         return reservations.map(reservationMapper::toSummaryDTO);
+    }
+
+    @Transactional
+    public RetrieveReservationResponseDTO cancelReservation(Long reservationId, String reason) {
+        log.info("Cancelling reservation ID: {}", reservationId);
+        User currentUser = userService.getCurrentUser();
+
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ReservationNotFoundException("Reservation not found: " + reservationId));
+
+        boolean isGuest = reservation.getGuest().getId().equals(currentUser.getId());
+        boolean isHost = reservation.getAccommodation().getHost().getId().equals(currentUser.getId());
+        if (!isGuest && !isHost) {
+            throw new AccessDeniedException("No tienes permisos para cancelar esta reserva.");
+        }
+
+        if (reservation.getStatus() != ReservationStatus.ACTIVE) {
+            throw new IllegalStateException("Solo se pueden cancelar reservas ACTIVE. Estado actual: " + reservation.getStatus());
+        }
+
+        reservation.setStatus(ReservationStatus.CANCELLED);
+        reservation.setCancellationReason(reason);
+        Reservation saved = reservationRepository.save(reservation);
+        log.info("Reservation {} cancelled by {}", reservationId, currentUser.getEmail());
+        return reservationMapper.toRetrieveDTO(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public ReservationPaymentSummaryDTO getPaymentSummary(Long reservationId) {
+        User currentUser = userService.getCurrentUser();
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ReservationNotFoundException("Reservation not found: " + reservationId));
+
+        boolean isGuest = reservation.getGuest().getId().equals(currentUser.getId());
+        boolean isHost = reservation.getAccommodation().getHost().getId().equals(currentUser.getId());
+        if (!isGuest && !isHost) {
+            throw new AccessDeniedException("No tienes permisos para ver el resumen de pago.");
+        }
+
+        return toPaymentSummary(reservation);
+    }
+
+    @Transactional
+    public ReservationPaymentSummaryDTO reportDepositPayment(Long reservationId,
+                                                             DepositPaymentReportRequestDTO request) {
+        User currentUser = userService.getCurrentUser();
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ReservationNotFoundException("Reservation not found: " + reservationId));
+
+        boolean isGuest = reservation.getGuest().getId().equals(currentUser.getId());
+        boolean isHost = reservation.getAccommodation().getHost().getId().equals(currentUser.getId());
+        if (!isGuest && !isHost) {
+            throw new AccessDeniedException("No tienes permisos para reportar este pago.");
+        }
+
+        if (reservation.getStatus() != ReservationStatus.ACTIVE) {
+            throw new IllegalStateException("Solo se puede reportar pago para reservas ACTIVE.");
+        }
+        if (reservation.getDepositPaid()) {
+            throw new IllegalStateException("El depósito ya fue registrado.");
+        }
+
+        reservation.setDepositPaid(true);
+        Reservation saved = reservationRepository.save(reservation);
+        log.info("Deposit payment registered for reservation {} by {}", reservationId, currentUser.getEmail());
+        return toPaymentSummary(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public void resendConfirmation(Long reservationId) {
+        User currentUser = userService.getCurrentUser();
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ReservationNotFoundException("Reservation not found: " + reservationId));
+
+        boolean isGuest = reservation.getGuest().getId().equals(currentUser.getId());
+        boolean isHost = reservation.getAccommodation().getHost().getId().equals(currentUser.getId());
+        if (!isGuest && !isHost) {
+            throw new AccessDeniedException("No tienes permisos para reenviar esta confirmación.");
+        }
+
+        applicationEventPublisher.publishEvent(new ReservationCreatedEvent(reservation));
+        log.info("Confirmation email resent for reservation {}", reservationId);
+    }
+
+    private ReservationPaymentSummaryDTO toPaymentSummary(Reservation r) {
+        boolean overdue = !r.getDepositPaid() && r.getPaymentDeadline().isBefore(LocalDateTime.now());
+        return new ReservationPaymentSummaryDTO(
+                r.getId(),
+                r.getBookingNumber(),
+                r.getTotalPrice(),
+                r.getCurrency().getCurrencyCode(),
+                r.getDepositAmount(),
+                r.getDepositPaid(),
+                r.getPaymentDeadline(),
+                bankAccountNumber,
+                overdue
+        );
     }
 }

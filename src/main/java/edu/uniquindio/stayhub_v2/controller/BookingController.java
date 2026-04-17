@@ -1,7 +1,11 @@
 package edu.uniquindio.stayhub_v2.controller;
 
+import edu.uniquindio.stayhub_v2.dto.auth.MessageResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.reservation.CancelReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.CreateReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.CreateReservationResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.reservation.DepositPaymentReportRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.reservation.ReservationPaymentSummaryDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.RetrieveReservationResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.RetrieveReservationSummaryResponseDTO;
 import edu.uniquindio.stayhub_v2.service.ReservationService;
@@ -15,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -181,5 +186,39 @@ public class BookingController {
         log.info("GET /bookings/my-reservations?page={} - retrieving reservations list", page);
         Page<RetrieveReservationSummaryResponseDTO> response = reservationService.getMyReservations(page);
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Cancel a reservation", description = "Cancels an ACTIVE reservation. Allowed for the guest or the host.")
+    @PostMapping("/{reservationId}/cancel")
+    public ResponseEntity<RetrieveReservationResponseDTO> cancelReservation(
+            @PathVariable Long reservationId,
+            @RequestBody(required = false) CancelReservationRequestDTO requestDTO) {
+        log.info("POST /bookings/{}/cancel", reservationId);
+        String reason = requestDTO != null ? requestDTO.reason() : null;
+        return ResponseEntity.ok(reservationService.cancelReservation(reservationId, reason));
+    }
+
+    @Operation(summary = "Get reservation payment summary", description = "Returns deposit details, deadline, and bank account for the reservation")
+    @GetMapping("/{reservationId}/payment-summary")
+    public ResponseEntity<ReservationPaymentSummaryDTO> getPaymentSummary(@PathVariable Long reservationId) {
+        log.info("GET /bookings/{}/payment-summary", reservationId);
+        return ResponseEntity.ok(reservationService.getPaymentSummary(reservationId));
+    }
+
+    @Operation(summary = "Report deposit payment", description = "Marks the deposit as paid. Can be guest or host confirmation.")
+    @PostMapping("/{reservationId}/payments/deposit")
+    public ResponseEntity<ReservationPaymentSummaryDTO> reportDepositPayment(
+            @PathVariable Long reservationId,
+            @Valid @RequestBody DepositPaymentReportRequestDTO requestDTO) {
+        log.info("POST /bookings/{}/payments/deposit", reservationId);
+        return ResponseEntity.ok(reservationService.reportDepositPayment(reservationId, requestDTO));
+    }
+
+    @Operation(summary = "Resend reservation confirmation", description = "Triggers a new confirmation email for the reservation")
+    @PostMapping("/{reservationId}/confirmation/resend")
+    public ResponseEntity<MessageResponseDTO> resendConfirmation(@PathVariable Long reservationId) {
+        log.info("POST /bookings/{}/confirmation/resend", reservationId);
+        reservationService.resendConfirmation(reservationId);
+        return ResponseEntity.ok(new MessageResponseDTO("Confirmación reenviada exitosamente"));
     }
 }

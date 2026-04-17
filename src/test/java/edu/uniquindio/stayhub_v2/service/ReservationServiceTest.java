@@ -1,7 +1,11 @@
 package edu.uniquindio.stayhub_v2.service;
 
+import edu.uniquindio.stayhub_v2.dto.reservation.CancelReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.CreateReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.CreateReservationResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.reservation.DepositPaymentReportRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.reservation.ReservationPaymentSummaryDTO;
+import edu.uniquindio.stayhub_v2.dto.reservation.RetrieveReservationResponseDTO;
 import edu.uniquindio.stayhub_v2.event.ReservationCreatedEvent;
 import edu.uniquindio.stayhub_v2.exception.AccommodationNotFoundException;
 import edu.uniquindio.stayhub_v2.mapper.ReservationMapper;
@@ -80,11 +84,13 @@ class ReservationServiceTest {
                 .fullName("Juan Pérez")
                 .build();
 
+        User host = User.builder().id(99L).email("host@mail.com").build();
         accommodation = Accommodation.builder()
                 .id(10L)
                 .title("Cabaña en el Quindío")
                 .pricePerNight(new BigDecimal("200000"))
                 .currency(Currency.getInstance("COP"))
+                .host(host)
                 .build();
 
         savedReservation = new Reservation();
@@ -254,5 +260,65 @@ class ReservationServiceTest {
                 .hasMessageContaining("already booked");
 
         verify(reservationRepository, never()).save(any());
+    }
+
+    @Test
+    void cancelReservation_GuestCancels_StatusBecomeCancelled() {
+        savedReservation.setStatus(ReservationStatus.ACTIVE);
+        when(reservationRepository.findById(100L)).thenReturn(Optional.of(savedReservation));
+        when(userService.getCurrentUser()).thenReturn(guest);
+        when(reservationRepository.save(savedReservation)).thenReturn(savedReservation);
+        when(reservationMapper.toRetrieveDTO(savedReservation)).thenReturn(
+                new RetrieveReservationResponseDTO(
+                        100L, null, null, 10L, "Cabaña", "Armenia",
+                        1L, "guest@mail.com", BigDecimal.valueOf(600000), "COP",
+                        BigDecimal.valueOf(120000), false, null, ReservationStatus.CANCELLED, null, null));
+
+        RetrieveReservationResponseDTO result =
+                reservationService.cancelReservation(100L, "Planes cambiaron");
+
+        assertThat(savedReservation.getStatus()).isEqualTo(ReservationStatus.CANCELLED);
+        assertThat(savedReservation.getCancellationReason()).isEqualTo("Planes cambiaron");
+        verify(reservationRepository).save(savedReservation);
+    }
+
+    @Test
+    void cancelReservation_AlreadyCancelled_ThrowsException() {
+        savedReservation.setStatus(ReservationStatus.CANCELLED);
+        when(reservationRepository.findById(100L)).thenReturn(Optional.of(savedReservation));
+        when(userService.getCurrentUser()).thenReturn(guest);
+
+        assertThatThrownBy(() -> reservationService.cancelReservation(100L, null))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void getPaymentSummary_ActiveReservation_ReturnsCorrectSummary() {
+        when(reservationRepository.findById(100L)).thenReturn(Optional.of(savedReservation));
+        when(userService.getCurrentUser()).thenReturn(guest);
+
+        ReservationPaymentSummaryDTO result =
+                reservationService.getPaymentSummary(100L);
+
+        assertThat(result.reservationId()).isEqualTo(100L);
+        assertThat(result.depositPaid()).isFalse();
+        assertThat(result.bankAccountNumber()).isEqualTo(BANK_ACCOUNT);
+    }
+
+    @Test
+    void reportDepositPayment_ValidAmount_SetsDepositPaid() {
+        when(reservationRepository.findById(100L)).thenReturn(Optional.of(savedReservation));
+        when(userService.getCurrentUser()).thenReturn(guest);
+        when(reservationRepository.save(savedReservation)).thenReturn(savedReservation);
+
+        DepositPaymentReportRequestDTO request =
+                new DepositPaymentReportRequestDTO(
+                        new BigDecimal("120000"), "COP", null, null, null);
+
+        ReservationPaymentSummaryDTO result =
+                reservationService.reportDepositPayment(100L, request);
+
+        assertThat(savedReservation.getDepositPaid()).isTrue();
+        verify(reservationRepository).save(savedReservation);
     }
 }
