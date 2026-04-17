@@ -185,4 +185,6 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, Lo
      *     @Param("startDate") LocalDateTime startDate,
      *     @Param("endDate") LocalDateTime endDate);
      */
+
+    long countByHostId(Long hostId);
 }

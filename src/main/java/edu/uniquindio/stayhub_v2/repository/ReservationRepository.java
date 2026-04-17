@@ -326,4 +326,18 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
      *     @Param("startDate") LocalDateTime startDate,
      *     @Param("endDate") LocalDateTime endDate);
      */
+
+    @Query("""
+            SELECT r FROM Reservation r
+            WHERE r.accommodation.host.id = :hostId
+            AND r.status IN :statuses
+            AND (:from IS NULL OR r.startDate >= :from)
+            AND (:to IS NULL OR r.startDate <= :to)
+            """)
+    List<Reservation> findByHostIdAndStatusInAndDateRange(
+            @Param("hostId") Long hostId,
+            @Param("statuses") List<ReservationStatus> statuses,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
 }
