@@ -263,6 +263,33 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     Page<Reservation> findByAccommodationHostId(Long hostId, Pageable pageable);
 
+    @Query("""
+            SELECT COUNT(r) > 0 FROM Reservation r
+            WHERE r.accommodation.id = :accommodationId
+            AND r.status = :status
+            AND (r.startDate < :endDate AND r.endDate > :startDate)
+            """)
+    boolean existsByAccommodationIdAndDateRangeOverlapAndStatus(
+            @Param("accommodationId") Long accommodationId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("status") ReservationStatus status
+    );
+
+    @Query("""
+            SELECT r FROM Reservation r
+            WHERE r.accommodation.id = :accommodationId
+            AND r.status = :status
+            AND r.startDate >= :from
+            AND r.startDate <= :to
+            """)
+    List<Reservation> findByAccommodationIdAndStatusAndStartDateBetween(
+            @Param("accommodationId") Long accommodationId,
+            @Param("status") ReservationStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
+
     /*
      * Additional query methods that could be added in the future:
      *
