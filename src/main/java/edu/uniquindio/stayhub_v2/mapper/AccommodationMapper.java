@@ -1,8 +1,20 @@
 package edu.uniquindio.stayhub_v2.mapper;
 
+import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationCreateRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationDetailResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationGetByIdResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationLegalInfoDTO;
+import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationSummaryResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationUpdateRequestDTO;
 import edu.uniquindio.stayhub_v2.model.Accommodation;
+import edu.uniquindio.stayhub_v2.model.AccommodationLegalInfo;
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
+
+import java.util.Currency;
 
 /**
  * Mapper interface for converting Accommodation entities to DTOs.
@@ -40,6 +52,52 @@ import org.mapstruct.Mapper;
  */
 @Mapper(componentModel = "spring")
 public interface AccommodationMapper {
+
+    // ── Currency ↔ String helpers ────────────────────────────────────────────
+
+    default String currencyToString(Currency currency) {
+        return currency == null ? null : currency.getCurrencyCode();
+    }
+
+    default Currency stringToCurrency(String code) {
+        return code == null ? null : Currency.getInstance(code);
+    }
+
+    // ── Detail / Summary ─────────────────────────────────────────────────────
+
+    @Mapping(target = "currency", expression = "java(currencyToString(accommodation.getCurrency()))")
+    AccommodationDetailResponseDTO toDetailDTO(Accommodation accommodation);
+
+    @Mapping(target = "currency", expression = "java(currencyToString(accommodation.getCurrency()))")
+    AccommodationSummaryResponseDTO toSummaryDTO(Accommodation accommodation);
+
+    // ── Create / Update ──────────────────────────────────────────────────────
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "code", ignore = true)
+    @Mapping(target = "host", ignore = true)
+    @Mapping(target = "deleted", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "reservations", ignore = true)
+    @Mapping(target = "currency", expression = "java(stringToCurrency(dto.currency()))")
+    @Mapping(target = "available", expression = "java(dto.available() != null ? dto.available() : true)")
+    Accommodation toEntity(AccommodationCreateRequestDTO dto);
+
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "code", ignore = true)
+    @Mapping(target = "host", ignore = true)
+    @Mapping(target = "deleted", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "reservations", ignore = true)
+    @Mapping(target = "currency", expression = "java(dto.currency() != null ? stringToCurrency(dto.currency()) : accommodation.getCurrency())")
+    void updateFromDto(AccommodationUpdateRequestDTO dto, @MappingTarget Accommodation accommodation);
+
+    AccommodationLegalInfoDTO toLegalInfoDTO(AccommodationLegalInfo legal);
+
+    AccommodationLegalInfo toLegalInfo(AccommodationLegalInfoDTO dto);
 
     /**
      * Maps an Accommodation entity to an AccommodationGetByIdResponseDTO.

@@ -1,9 +1,14 @@
 package edu.uniquindio.stayhub_v2.service;
 
+import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationCreateRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationDetailResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationGetByIdResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationSummaryResponseDTO;
+import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationUpdateRequestDTO;
 import edu.uniquindio.stayhub_v2.exception.AccommodationNotFoundException;
 import edu.uniquindio.stayhub_v2.mapper.AccommodationMapper;
 import edu.uniquindio.stayhub_v2.model.Accommodation;
+import edu.uniquindio.stayhub_v2.model.User;
 import edu.uniquindio.stayhub_v2.repository.AccommodationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,10 +16,15 @@ import edu.uniquindio.stayhub_v2.exception.ActiveReservationsException;
 import edu.uniquindio.stayhub_v2.exception.UnauthorizedHostException;
 import edu.uniquindio.stayhub_v2.model.ReservationStatus;
 import edu.uniquindio.stayhub_v2.repository.ReservationRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * Service class for managing accommodation-related business operations.
@@ -83,6 +93,7 @@ public class AccommodationService {
     private final AccommodationRepository accommodationRepository;
     private final AccommodationMapper accommodationMapper;
     private final ReservationRepository reservationRepository;
+    private final UserService userService;
 
     /**
      * Retrieves an active accommodation by its unique identifier.
@@ -122,6 +133,70 @@ public class AccommodationService {
      * @return AccommodationGetByIdResponseDTO containing the accommodation details
      * @throws AccommodationNotFoundException if no active accommodation exists with the given ID
      */
+    @Transactional
+    public AccommodationDetailResponseDTO createAccommodation(AccommodationCreateRequestDTO requestDTO) {
+        User host = userService.getCurrentUser();
+        log.info("Creating accommodation for host: {}", host.getEmail());
+
+        Accommodation accommodation = accommodationMapper.toEntity(requestDTO);
+        accommodation.setHost(host);
+        accommodation.setCode(generateCode(requestDTO.city()));
+
+        Accommodation saved = accommodationRepository.save(accommodation);
+        log.info("Accommodation created with code: {}", saved.getCode());
+        return accommodationMapper.toDetailDTO(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public AccommodationDetailResponseDTO getAccommodationByCode(String code) {
+        log.debug("Fetching accommodation by code: {}", code);
+        Accommodation accommodation = accommodationRepository.findByCodeAndDeletedFalse(code)
+                .orElseThrow(() -> new AccommodationNotFoundException("Accommodation not found with code: " + code));
+        return accommodationMapper.toDetailDTO(accommodation);
+    }
+
+    @Transactional
+    public AccommodationDetailResponseDTO updateAccommodation(Long id, AccommodationUpdateRequestDTO requestDTO, String requesterEmail) {
+        log.info("Updating accommodation ID: {} by: {}", id, requesterEmail);
+        Accommodation accommodation = accommodationRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() -> new AccommodationNotFoundException("Accommodation not found with id: " + id));
+
+        if (!accommodation.getHost().getEmail().equals(requesterEmail)) {
+            throw new UnauthorizedHostException("No tienes permisos para editar esta casa rural.");
+        }
+
+        accommodationMapper.updateFromDto(requestDTO, accommodation);
+        Accommodation saved = accommodationRepository.save(accommodation);
+        return accommodationMapper.toDetailDTO(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AccommodationSummaryResponseDTO> searchAccommodations(
+            String city, String q, Integer guests,
+            LocalDateTime startDate, LocalDateTime endDate,
+            int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return accommodationRepository
+                .searchAccommodations(city, q, guests, startDate, endDate, pageable)
+                .map(accommodationMapper::toSummaryDTO);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AccommodationSummaryResponseDTO> listMyAccommodations(int page, boolean includeDeleted) {
+        User host = userService.getCurrentUser();
+        Pageable pageable = PageRequest.of(page, 10, Sort.by("createdAt").descending());
+        Page<Accommodation> accommodations = includeDeleted
+                ? accommodationRepository.findByHostEmail(host.getEmail(), pageable)
+                : accommodationRepository.findByHostEmailAndDeletedFalse(host.getEmail(), pageable);
+        return accommodations.map(accommodationMapper::toSummaryDTO);
+    }
+
+    private String generateCode(String city) {
+        String prefix = city.substring(0, Math.min(3, city.length())).toUpperCase();
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
+        return prefix + "-" + suffix;
+    }
+
     public AccommodationGetByIdResponseDTO getAccommodation(Long id) {
         log.debug("Retrieving accommodation with ID: {}", id);
 

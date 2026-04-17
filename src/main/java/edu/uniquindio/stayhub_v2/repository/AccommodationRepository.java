@@ -1,8 +1,14 @@
 package edu.uniquindio.stayhub_v2.repository;
 
 import edu.uniquindio.stayhub_v2.model.Accommodation;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
@@ -60,7 +66,7 @@ import java.util.Optional;
  * @see JpaRepository
  * @see Accommodation
  */
-public interface AccommodationRepository extends JpaRepository<Accommodation, Long> {
+public interface AccommodationRepository extends JpaRepository<Accommodation, Long>, JpaSpecificationExecutor<Accommodation> {
 
     /**
      * Finds an active (non-deleted) accommodation by its unique identifier.
@@ -104,6 +110,39 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, Lo
      *         and is not deleted, otherwise an empty {@code Optional}
      */
     Optional<Accommodation> findByIdAndDeletedFalse(Long id);
+
+    Optional<Accommodation> findByCodeAndDeletedFalse(String code);
+
+    Page<Accommodation> findByHostEmailAndDeletedFalse(String email, Pageable pageable);
+
+    Page<Accommodation> findByHostEmail(String email, Pageable pageable);
+
+    boolean existsByCode(String code);
+
+    @Query("""
+            SELECT a FROM Accommodation a
+            WHERE a.deleted = false
+            AND a.available = true
+            AND (:city IS NULL OR LOWER(a.city) LIKE LOWER(CONCAT('%', :city, '%')))
+            AND (:q IS NULL OR LOWER(a.title) LIKE LOWER(CONCAT('%', :q, '%'))
+                           OR LOWER(a.description) LIKE LOWER(CONCAT('%', :q, '%')))
+            AND (:guests IS NULL OR a.capacity >= :guests)
+            AND (:startDate IS NULL OR :endDate IS NULL OR NOT EXISTS (
+                SELECT r FROM Reservation r
+                WHERE r.accommodation = a
+                AND r.status = edu.uniquindio.stayhub_v2.model.ReservationStatus.ACTIVE
+                AND r.startDate < :endDate
+                AND r.endDate > :startDate
+            ))
+            """)
+    Page<Accommodation> searchAccommodations(
+            @Param("city") String city,
+            @Param("q") String q,
+            @Param("guests") Integer guests,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable
+    );
 
     /*
      * Additional query methods that could be added in the future:

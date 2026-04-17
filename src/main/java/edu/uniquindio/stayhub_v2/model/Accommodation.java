@@ -3,6 +3,7 @@ package edu.uniquindio.stayhub_v2.model;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -93,6 +94,13 @@ public class Accommodation extends Auditable {
      * must belong to a registered host user. The host has full management
      * rights over this accommodation.</p>
      */
+    /**
+     * Unique business code generated on creation (e.g., ARM-A1B2C3D4).
+     * Used by guests to look up an accommodation directly.
+     */
+    @Column(unique = true)
+    private String code;
+
     @ManyToOne
     @JoinColumn(name = "host_id", nullable = false)
     private User host;
@@ -273,4 +281,7 @@ public class Accommodation extends Auditable {
     @Column(name = "available", nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
     @Builder.Default
     private boolean available = true;
+
+    @Embedded
+    private AccommodationLegalInfo legal;
 }
