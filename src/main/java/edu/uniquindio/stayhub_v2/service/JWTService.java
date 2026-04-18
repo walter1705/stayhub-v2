@@ -112,8 +112,14 @@ public class JWTService {
      * @param expirationTime The token expiration time in milliseconds, loaded from {@code JWT.TIME.EXPIRATION}
      */
     public JWTService(
-            @Value("${JWT.SECRET.KEY}") String secretKey,
-            @Value("${JWT.TIME.EXPIRATION}") long expirationTime) {
+            @Value("${JWT_SECRET_KEY:${JWT.SECRET.KEY}}") String secretKey,
+            @Value("${JWT_TIME_EXPIRATION:${JWT.TIME.EXPIRATION:86400000}}") long expirationTime) {
+
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException(
+                    "JWT secret is missing. Set JWT_SECRET_KEY (recommended) or JWT.SECRET.KEY."
+            );
+        }
 
         this.SECRET_KEY = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
         this.EXPIRATION_TIME = expirationTime;
