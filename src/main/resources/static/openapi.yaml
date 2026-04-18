@@ -2,17 +2,48 @@ openapi: 3.0.3
 info:
   title: StayHub v2 API
   version: 1.0.0
-  description: OpenAPI spec generated from the current implemented controllers in StayHub v2.
+  description: |
+    API contract for StayHub.
+
+    This `openapi.yaml` is intended as the implementation target for the checklist in `task.md`.
 servers:
   - url: http://localhost:8080
     description: Local server
+
+tags:
+  - name: Auth
+    description: User authentication and password flows
+  - name: Users
+    description: User profile management
+  - name: Accommodations
+    description: Rural houses (casa rural) management and search
+  - name: Rooms
+    description: Rooms inside an accommodation
+  - name: Availability
+    description: Availability querying and calendar management
+  - name: Bookings
+    description: Reservation lifecycle
+  - name: Payments
+    description: Deposit payments and deadlines
+  - name: Notifications
+    description: In-app notifications for guests and hosts
+  - name: Rental Packages
+    description: Rental package CRUD
+  - name: Reviews
+    description: Comments and ratings (post-stay)
+  - name: Metrics
+    description: Basic accommodation metrics
+
+security:
+  - bearerAuth: []
+
 paths:
   /api/v2/users/auth/signup:
     post:
-      tags:
-        - Users
+      tags: [Auth]
       summary: Register a new user
       operationId: signupUser
+      security: []
       requestBody:
         required: true
         content:
@@ -27,17 +58,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserSignupResponse'
         '400':
-          description: Validation error
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already exists
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
   /api/v2/users/auth/login:
     post:
-      tags:
-        - Users
+      tags: [Auth]
       summary: Login user
       operationId: loginUser
+      security: []
       requestBody:
         required: true
         content:
@@ -52,93 +86,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
         '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Invalid credentials
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v2/accommodations/{id}:
-    get:
-      tags:
-        - Accommodations
-      summary: Get accommodation by id
-      operationId: getAccommodationById
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: Accommodation id
-      responses:
-        '200':
-          description: Accommodation retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccommodationGetByIdResponse'
-        '404':
-          description: Accommodation not found
-          content:
-            application/json:
-                $ref: '#/components/schemas/Error'
-    delete:
-      tags:
-        - Accommodations
-      summary: Deactivate accommodation
-      description: Soft deletes an accommodation if it has no future active reservations, validating if user is the owner.
-      operationId: deactivateAccommodation
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: Accommodation id
-      responses:
-        '200':
-          description: Accommodation deactivated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          description: Active future reservations exist
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Unauthorized action, user is not the owner
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Accommodation not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
+
   /api/v2/users/auth/forgot-password:
     post:
-      tags:
-        - Users
+      tags: [Auth]
       summary: Forgot password
       description: Generates a recovery code and sends it via email
       operationId: forgotPassword
+      security: []
       requestBody:
         required: true
         content:
@@ -152,19 +110,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           description: User not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
   /api/v2/users/auth/reset-password:
     post:
-      tags:
-        - Users
+      tags: [Auth]
       summary: Reset password
       description: Resets user password using a recovery code
       operationId: resetPassword
+      security: []
       requestBody:
         required: true
         content:
@@ -184,15 +145,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
   /api/v2/users/auth/change-password:
     put:
-      tags:
-        - Users
+      tags: [Auth]
       summary: Change password
       description: Changes user's password requiring the current password
       operationId: changePassword
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -207,121 +166,864 @@ paths:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
         '400':
-          description: Validation or rules error
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v2/users/me:
+    get:
+      tags: [Users]
+      summary: Get my profile
+      operationId: getMyProfile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [Users]
+      summary: Update my profile
+      operationId: updateMyProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Users]
+      summary: Deactivate my account
+      operationId: deactivateMyAccount
+      responses:
+        '200':
+          description: Account deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v2/accommodations:
+    post:
+      tags: [Accommodations]
+      summary: Create an accommodation
+      description: Host creates a new rural house listing.
+      operationId: createAccommodation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccommodationCreateRequest'
+      responses:
+        '201':
+          description: Accommodation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccommodationDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Accommodation code already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags: [Accommodations]
+      summary: Search accommodations
+      description: |
+        Search accommodations by city (poblacion) and optional filters.
+        This endpoint is used for listing and search results.
+      operationId: searchAccommodations
+      parameters:
+        - in: query
+          name: city
+          required: false
+          schema:
+            type: string
+          description: City (poblacion) filter
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+          description: Free text query (title/description)
+        - in: query
+          name: guests
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+          description: Minimum capacity required
+        - in: query
+          name: startDate
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Desired check-in datetime (for availability filtering)
+        - in: query
+          name: endDate
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Desired check-out datetime (for availability filtering)
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Paginated results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedAccommodationSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v2/hosts/me/accommodations:
+    get:
+      tags: [Accommodations]
+      summary: List my accommodations (host)
+      description: Returns accommodations owned by the authenticated host.
+      operationId: listMyAccommodations
+      parameters:
+        - in: query
+          name: includeDeleted
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Paginated results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedAccommodationSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v2/accommodations/by-code/{code}:
+    get:
+      tags: [Accommodations]
+      summary: Get accommodation by code
+      operationId: getAccommodationByCode
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 32
+          description: Unique accommodation code
+      responses:
+        '200':
+          description: Accommodation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccommodationDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/accommodations/{id}:
+    get:
+      tags: [Accommodations]
+      summary: Get accommodation by id
+      operationId: getAccommodationById
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Accommodation id
+      responses:
+        '200':
+          description: Accommodation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccommodationDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Accommodations]
+      summary: Update accommodation
+      operationId: updateAccommodation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccommodationUpdateRequest'
+      responses:
+        '200':
+          description: Accommodation updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccommodationDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Accommodations]
+      summary: Deactivate accommodation
+      description: Soft deletes an accommodation if it has no future active reservations, validating if user is the owner.
+      operationId: deactivateAccommodation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Accommodation deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Active future reservations exist
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Invalid current password
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/accommodations/{id}/images:
+    post:
+      tags: [Accommodations]
+      summary: Upload accommodation images
+      description: |
+        Upload one or more images for an accommodation.
+        The backend is responsible for storing the files and returning public URLs.
+      operationId: uploadAccommodationImages
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                kind:
+                  type: string
+                  enum: [MAIN, GALLERY]
+                  default: GALLERY
+              required: [files]
+      responses:
+        '200':
+          description: Uploaded images
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: array
+                items:
+                  $ref: '#/components/schemas/ImageResource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Accommodations]
+      summary: Remove an accommodation image
+      operationId: deleteAccommodationImage
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: imageId
+          required: true
+          schema:
+            type: string
+          description: Image resource identifier
+      responses:
+        '200':
+          description: Image removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
-  # ─────────────────────────────────────────────
-  # BOOKINGS — updated with payment fields (v1.1)
-  # ─────────────────────────────────────────────
+  /api/v2/accommodations/{id}/rooms:
+    get:
+      tags: [Rooms]
+      summary: List rooms for an accommodation
+      operationId: listRooms
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Rooms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Rooms]
+      summary: Create room
+      description: Creates a room and generates a unique room code within the accommodation.
+      operationId: createRoom
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomCreateRequest'
+      responses:
+        '201':
+          description: Room created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/rooms/{roomId}:
+    put:
+      tags: [Rooms]
+      summary: Update room
+      operationId: updateRoom
+      parameters:
+        - in: path
+          name: roomId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomUpdateRequest'
+      responses:
+        '200':
+          description: Updated room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Rooms]
+      summary: Delete room
+      operationId: deleteRoom
+      parameters:
+        - in: path
+          name: roomId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Room deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/accommodations/{id}/availability/check:
+    get:
+      tags: [Availability]
+      summary: Check availability for a date range
+      operationId: checkAvailability
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: startDate
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: endDate
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Availability status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityCheckResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/accommodations/{id}/availability/calendar:
+    get:
+      tags: [Availability]
+      summary: Get availability calendar
+      description: |
+        Returns a calendar representation suitable for a visual calendar UI.
+        Days may be AVAILABLE, BOOKED, BLOCKED, or UNDEFINED.
+      operationId: getAvailabilityCalendar
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: month
+          required: true
+          schema:
+            type: string
+            pattern: '^\\d{4}-\\d{2}$'
+          description: Month in format YYYY-MM
+      responses:
+        '200':
+          description: Calendar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityCalendarResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/accommodations/{id}/availability/rules:
+    get:
+      tags: [Availability]
+      summary: List availability rules
+      description: Host-defined availability/blocked periods.
+      operationId: listAvailabilityRules
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AvailabilityRule'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Availability]
+      summary: Replace availability rules
+      description: |
+        Host replaces the set of availability rules for an accommodation.
+        This endpoint is the primary way to ensure "períodos no definidos" are handled
+        by explicitly defining availability/blocked periods.
+      operationId: replaceAvailabilityRules
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/AvailabilityRuleInput'
+      responses:
+        '200':
+          description: Updated rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AvailabilityRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/v2/bookings/book:
     post:
-      tags:
-        - Bookings
+      tags: [Bookings]
       summary: Create a new accommodation reservation
-      description: |
-        Creates a new reservation for an accommodation.
-
-        **Payment notice (v1.1):** Upon successful creation the response includes:
-        - `depositAmount`: the 20% advance deposit the guest must pay.
-        - `bankAccountNumber`: the account where the transfer should be made.
-        - `paymentDeadline`: 3 days from booking. The guest must pay before this date.
-
-        The frontend should display a modal with these details immediately after booking.
       operationId: bookAccommodation
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateReservationRequest'
-            example:
-              accommodationId: 1
-              startDate: "2025-06-01T15:00:00"
-              endDate: "2025-06-05T11:00:00"
       responses:
         '201':
-          description: |
-            Reservation successfully created.
-            The response includes payment details for the mandatory 20% advance deposit.
+          description: Reservation created (includes deposit payment summary)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CreateReservationResponse'
-              example:
-                id: 12345
-                startDate: "2025-06-01T15:00:00"
-                endDate: "2025-06-05T11:00:00"
-                totalPrice: 1000.00
-                currency: "COP"
-                status: "ACTIVE"
-                accommodationId: 1
-                accommodationTitle: "Cabaña en el Quindío"
-                userId: 678
-                depositAmount: 200.00
-                bankAccountNumber: "3001234567890"
-                paymentDeadline: "2025-04-18T09:00:00"
         '400':
-          description: Invalid request — validation failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized — valid JWT token required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Accommodation not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/NotFound'
         '409':
-          description: Conflict — accommodation not available for selected dates
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Conflict'
 
-  # ─────────────────────────────────────────────
-  # NOTIFICATIONS — new endpoint (v1.1)
-  # ─────────────────────────────────────────────
+  /api/v2/bookings/{reservationId}:
+    get:
+      tags: [Bookings]
+      summary: Get reservation detail by ID
+      description: Only the guest or the host of the accommodation can access it.
+      operationId: getReservationById
+      parameters:
+        - in: path
+          name: reservationId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Reservation detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetrieveReservationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/bookings/my-reservations:
+    get:
+      tags: [Bookings]
+      summary: Get paginated list of my reservations
+      description: If HOST returns reservations of owned accommodations, else guest reservations.
+      operationId: getMyReservations
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Reservations page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageReservationSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v2/bookings/{reservationId}/cancel:
+    post:
+      tags: [Bookings]
+      summary: Cancel a reservation
+      description: Cancels an ACTIVE reservation. Allowed for the guest or the host.
+      operationId: cancelReservation
+      parameters:
+        - in: path
+          name: reservationId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelReservationRequest'
+      responses:
+        '200':
+          description: Reservation cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetrieveReservationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/v2/bookings/{reservationId}/payment-summary:
+    get:
+      tags: [Payments]
+      summary: Get reservation payment summary
+      operationId: getReservationPaymentSummary
+      parameters:
+        - in: path
+          name: reservationId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Payment summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationPaymentSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/bookings/{reservationId}/payments/deposit:
+    post:
+      tags: [Payments]
+      summary: Report deposit payment
+      description: |
+        Marks the reservation deposit as paid.
+        This can be implemented as either an admin/host confirmation flow or an automated reconciliation.
+      operationId: reportDepositPayment
+      parameters:
+        - in: path
+          name: reservationId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepositPaymentReportRequest'
+      responses:
+        '200':
+          description: Deposit payment registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationPaymentSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/v2/bookings/{reservationId}/confirmation/resend:
+    post:
+      tags: [Bookings]
+      summary: Resend reservation confirmation
+      description: Triggers a new confirmation email for the reservation.
+      operationId: resendReservationConfirmation
+      parameters:
+        - in: path
+          name: reservationId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Confirmation email triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/v2/notifications/payment-pending:
     get:
-      tags:
-        - Notifications
+      tags: [Notifications]
       summary: Get pending payment notifications
-      description: |
-        Returns all active reservations for the **authenticated guest** that have a pending
-        deposit payment (`depositPaid = false`) and a deadline that has not expired yet.
-
-        **Usage (frontend):** Call this endpoint after login or when the user navigates to
-        their reservations page. If the list is non-empty, display a payment reminder modal
-        for each pending payment.
-
-        Returns an **empty array** when there are no pending payments.
       operationId: getPendingPaymentNotifications
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: List of pending payment notifications (may be empty)
@@ -331,19 +1033,344 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/PaymentNotification'
-              example:
-                - reservationId: 12345
-                  accommodationTitle: "Cabaña en el Quindío"
-                  depositAmount: 200.00
-                  currency: "COP"
-                  bankAccountNumber: "3001234567890"
-                  paymentDeadline: "2025-04-18T09:00:00"
         '401':
-          description: Unauthorized — valid JWT token required
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v2/notifications:
+    get:
+      tags: [Notifications]
+      summary: List in-app notifications
+      operationId: listNotifications
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Notifications page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageNotification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v2/notifications/host:
+    get:
+      tags: [Notifications]
+      summary: List host notifications
+      description: Notifications relevant for owners (new bookings, cancellations, reviews).
+      operationId: listHostNotifications
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Notifications page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageNotification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v2/notifications/{notificationId}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark notification as read
+      operationId: markNotificationRead
+      parameters:
+        - in: path
+          name: notificationId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/accommodations/{id}/rental-packages:
+    get:
+      tags: [Rental Packages]
+      summary: List rental packages
+      operationId: listRentalPackages
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Packages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RentalPackage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Rental Packages]
+      summary: Create rental package
+      operationId: createRentalPackage
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RentalPackageCreateRequest'
+      responses:
+        '201':
+          description: Package created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RentalPackage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/rental-packages/{packageId}:
+    put:
+      tags: [Rental Packages]
+      summary: Update rental package
+      operationId: updateRentalPackage
+      parameters:
+        - in: path
+          name: packageId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RentalPackageUpdateRequest'
+      responses:
+        '200':
+          description: Updated package
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RentalPackage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Rental Packages]
+      summary: Delete rental package
+      operationId: deleteRentalPackage
+      parameters:
+        - in: path
+          name: packageId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Package deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/reviews:
+    post:
+      tags: [Reviews]
+      summary: Create a review
+      description: Only allowed if the reservation is COMPLETED (stay finished).
+      operationId: createReview
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreateRequest'
+      responses:
+        '201':
+          description: Review created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Reservation not eligible for review (not completed or already reviewed)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /api/v2/accommodations/{id}/reviews:
+    get:
+      tags: [Reviews]
+      summary: List reviews for an accommodation
+      operationId: listAccommodationReviews
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Reviews page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageReview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/reviews/{reviewId}/response:
+    post:
+      tags: [Reviews]
+      summary: Host response to a review
+      operationId: respondToReview
+      parameters:
+        - in: path
+          name: reviewId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewHostResponseRequest'
+      responses:
+        '200':
+          description: Updated review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/hosts/me/metrics:
+    get:
+      tags: [Metrics]
+      summary: Get host metrics
+      description: Basic metrics for accommodations owned by the authenticated host.
+      operationId: getHostMetrics
+      parameters:
+        - in: query
+          name: from
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Start date (inclusive)
+        - in: query
+          name: to
+          required: false
+          schema:
+            type: string
+            format: date
+          description: End date (inclusive)
+      responses:
+        '200':
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostMetricsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
 components:
   securitySchemes:
@@ -351,6 +1378,39 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
   schemas:
     Error:
       type: object
@@ -361,17 +1421,37 @@ components:
         code:
           type: integer
           example: 401
-      required:
-        - message
-        - code
+      required: [message, code]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Operacion realizada exitosamente
+      required: [message]
+
     TokenResponse:
       type: object
       properties:
         token:
           type: string
           example: eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiZXhwIjoxNzI1ODk4MDAwfQ.abc
-      required:
-        - token
+      required: [token]
+
+    Role:
+      type: string
+      enum: [GUEST, HOST]
+
+    ReservationStatus:
+      type: string
+      enum: [ACTIVE, COMPLETED, CANCELLED, NO_SHOW]
+
+    CurrencyCode:
+      type: string
+      pattern: '^[A-Z]{3}$'
+      example: COP
+
     UserSignupRequest:
       type: object
       properties:
@@ -382,23 +1462,23 @@ components:
           example: john.doe@example.com
         password:
           type: string
-          pattern: ^(?=.*[A-Z])(?=.*\\d).{8,}$
+          format: password
+          pattern: '^(?=.*[A-Z])(?=.*\\d).{8,}$'
           example: P@ssw0rd123
         roles:
           type: array
           items:
             $ref: '#/components/schemas/Role'
           uniqueItems: true
-          example:
-            - GUEST
-            - HOST
+          minItems: 1
+          example: [GUEST]
         fullName:
           type: string
           maxLength: 100
-          example: John Giggity Doe
+          example: John Doe
         phoneNumber:
           type: string
-          pattern: ^\\+57\\s?\\d{10}$
+          pattern: '^\\+57\\s?\\d{10}$'
           example: +573101234567
         birthDate:
           type: string
@@ -407,17 +1487,47 @@ components:
         profilePicture:
           type: string
           format: uri
+          nullable: true
           example: https://example.com/profile.jpg
-      required:
-        - email
-        - password
-        - roles
-        - fullName
-        - phoneNumber
-        - birthDate
+      required: [email, password, roles, fullName, phoneNumber, birthDate]
+
     UserSignupResponse:
-      allOf:
-        - $ref: '#/components/schemas/UserSignupRequest'
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 123
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+          uniqueItems: true
+          example: [GUEST]
+        fullName:
+          type: string
+          example: John Doe
+        phoneNumber:
+          type: string
+          example: +573101234567
+        birthDate:
+          type: string
+          format: date
+          example: 1990-01-01
+        profilePicture:
+          type: string
+          format: uri
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-17T12:00:00Z'
+      required: [id, email, roles, fullName, phoneNumber, birthDate, createdAt]
+
     UserLoginRequest:
       type: object
       properties:
@@ -427,101 +1537,10 @@ components:
           example: john.doe@example.com
         password:
           type: string
+          format: password
           example: P@ssw0rd123
-      required:
-        - email
-        - password
-    AccommodationGetByIdResponse:
-      type: object
-      properties:
-        host:
-          $ref: '#/components/schemas/User'
-        title:
-          type: string
-          maxLength: 100
-        description:
-          type: string
-          maxLength: 1000
-        capacity:
-          type: integer
-          minimum: 1
-        pricePerNight:
-          type: number
-          format: double
-        mainImage:
-          type: string
-          format: uri
-        locationDescription:
-          type: string
-          maxLength: 100
-        city:
-          type: string
-          maxLength: 100
-        images:
-          type: array
-          items:
-            type: string
-            format: uri
-        available:
-          type: boolean
-      required:
-        - host
-        - title
-        - description
-        - capacity
-        - pricePerNight
-        - locationDescription
-        - city
-        - images
-        - available
-    User:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-        roles:
-          type: array
-          items:
-            $ref: '#/components/schemas/Role'
-          uniqueItems: true
-        fullName:
-          type: string
-        phoneNumber:
-          type: string
-        birthDate:
-          type: string
-          format: date
-        deleted:
-          type: boolean
-        profilePicture:
-          type: string
-          format: uri
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-    Role:
-      type: string
-      enum:
-        - GUEST
-        - HOST
-    MessageResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          example: Operación realizada exitosamente
-      required:
-        - message
+      required: [email, password]
+
     ForgotPasswordRequest:
       type: object
       properties:
@@ -529,8 +1548,8 @@ components:
           type: string
           format: email
           example: john.doe@example.com
-      required:
-        - email
+      required: [email]
+
     ResetPasswordRequest:
       type: object
       properties:
@@ -540,32 +1559,469 @@ components:
           example: john.doe@example.com
         code:
           type: string
-          example: "123456"
+          example: '123456'
         newPassword:
           type: string
-          pattern: ^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\S+$).{8,}$
+          format: password
+          pattern: '^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$'
           example: NewP@ssw0rd!
-      required:
-        - email
-        - code
-        - newPassword
+      required: [email, code, newPassword]
+
     ChangePasswordRequest:
       type: object
       properties:
         currentPassword:
           type: string
+          format: password
           example: OldP@ssw0rd123
         newPassword:
           type: string
-          pattern: ^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\S+$).{8,}$
+          format: password
+          pattern: '^(?=.*\\d)(?=.*\\p{Ll})(?=.*\\p{Lu})(?=.*[^\\p{L}\\d\\s]).{8,}$'
           example: NewP@ssw0rd!
-      required:
-        - currentPassword
-        - newPassword
+      required: [currentPassword, newPassword]
 
-    # ─────────────────────────────────────
-    # NEW schemas — v1.1 (Payment notice)
-    # ─────────────────────────────────────
+    UserPublic:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        fullName:
+          type: string
+          example: Carlos Ramirez
+        email:
+          type: string
+          format: email
+          example: carlos.ramirez@email.com
+        profilePicture:
+          type: string
+          format: uri
+          nullable: true
+      required: [id, fullName, email]
+
+    UserMeResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserPublic'
+        - type: object
+          properties:
+            roles:
+              type: array
+              items:
+                $ref: '#/components/schemas/Role'
+              uniqueItems: true
+            phoneNumber:
+              type: string
+              example: +573101234567
+            birthDate:
+              type: string
+              format: date
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+          required: [roles, phoneNumber, birthDate, createdAt, updatedAt]
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          maxLength: 100
+        phoneNumber:
+          type: string
+          pattern: '^\\+57\\s?\\d{10}$'
+        profilePicture:
+          type: string
+          format: uri
+          nullable: true
+      additionalProperties: false
+
+    AccommodationLegalInfo:
+      type: object
+      description: Legal information required to publish an accommodation.
+      properties:
+        registrationNumber:
+          type: string
+          description: Legal registration/license number.
+          example: RNT-123456
+        addressLine1:
+          type: string
+          example: Calle 10 # 20-30
+        postalCode:
+          type: string
+          nullable: true
+          example: '630001'
+        country:
+          type: string
+          example: CO
+        acceptedTermsAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [registrationNumber, addressLine1, country]
+
+    AccommodationCreateRequest:
+      type: object
+      description: |
+        Request body for creating an accommodation.
+
+        The backend MUST generate a unique `code` for the accommodation (task: "Generar codigos unicos para casas").
+      properties:
+        title:
+          type: string
+          maxLength: 100
+          example: Cabana en el Quindio
+        description:
+          type: string
+          maxLength: 1000
+          example: Hermosa cabana con vista a la montana.
+        capacity:
+          type: integer
+          minimum: 1
+          example: 6
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        pricePerNight:
+          type: number
+          format: double
+          minimum: 0
+          example: 120000
+        mainImage:
+          type: string
+          format: uri
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          example: -75.6811
+        latitude:
+          type: number
+          format: double
+          example: 4.5339
+        locationDescription:
+          type: string
+          maxLength: 200
+          example: A dos cuadras del parque principal.
+        city:
+          type: string
+          maxLength: 100
+          example: Armenia
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Optional initial gallery image URLs.
+        available:
+          type: boolean
+          default: true
+        legal:
+          $ref: '#/components/schemas/AccommodationLegalInfo'
+      required: [title, description, capacity, currency, pricePerNight, longitude, latitude, locationDescription, city, legal]
+
+    AccommodationUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 1000
+        capacity:
+          type: integer
+          minimum: 1
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        pricePerNight:
+          type: number
+          format: double
+          minimum: 0
+        mainImage:
+          type: string
+          format: uri
+          nullable: true
+        longitude:
+          type: number
+          format: double
+        latitude:
+          type: number
+          format: double
+        locationDescription:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          maxLength: 100
+        available:
+          type: boolean
+        legal:
+          $ref: '#/components/schemas/AccommodationLegalInfo'
+      additionalProperties: false
+
+    AccommodationSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        code:
+          type: string
+          example: ARM-QUINDIO-0001
+        title:
+          type: string
+          example: Cabana en el Quindio
+        city:
+          type: string
+          example: Armenia
+        capacity:
+          type: integer
+          example: 6
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        pricePerNight:
+          type: number
+          format: double
+          example: 120000
+        mainImage:
+          type: string
+          format: uri
+          nullable: true
+        available:
+          type: boolean
+      required: [id, code, title, city, capacity, currency, pricePerNight, available]
+
+    AccommodationDetail:
+      allOf:
+        - $ref: '#/components/schemas/AccommodationSummary'
+        - type: object
+          properties:
+            description:
+              type: string
+              maxLength: 1000
+            host:
+              $ref: '#/components/schemas/UserPublic'
+            longitude:
+              type: number
+              format: double
+            latitude:
+              type: number
+              format: double
+            locationDescription:
+              type: string
+              maxLength: 200
+            images:
+              type: array
+              items:
+                type: string
+                format: uri
+            legal:
+              $ref: '#/components/schemas/AccommodationLegalInfo'
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+          required: [description, host, longitude, latitude, locationDescription, images, legal, createdAt, updatedAt]
+
+    PagedAccommodationSummary:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccommodationSummary'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+      required: [content, page]
+
+    PageMeta:
+      type: object
+      properties:
+        number:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 10
+        totalElements:
+          type: integer
+          format: int64
+          example: 57
+        totalPages:
+          type: integer
+          example: 6
+      required: [number, size, totalElements, totalPages]
+
+    ImageResource:
+      type: object
+      properties:
+        id:
+          type: string
+          example: img_01HXYZ...
+        url:
+          type: string
+          format: uri
+          example: https://cdn.example.com/accommodations/1/photo1.jpg
+      required: [id, url]
+
+    Room:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10
+        accommodationId:
+          type: integer
+          format: int64
+          example: 1
+        code:
+          type: string
+          description: Unique room code within its accommodation.
+          example: ARM-QUINDIO-0001-R01
+        name:
+          type: string
+          example: Habitacion principal
+        capacity:
+          type: integer
+          minimum: 1
+          example: 2
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+      required: [id, accommodationId, code, name, capacity]
+
+    RoomCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        capacity:
+          type: integer
+          minimum: 1
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+      required: [name, capacity]
+
+    RoomUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        capacity:
+          type: integer
+          minimum: 1
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+      additionalProperties: false
+
+    AvailabilityDayStatus:
+      type: string
+      enum: [AVAILABLE, BOOKED, BLOCKED, UNDEFINED]
+
+    AvailabilityRuleType:
+      type: string
+      enum: [AVAILABLE, BLOCKED]
+
+    AvailabilityRuleInput:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/AvailabilityRuleType'
+        startDate:
+          type: string
+          format: date
+          example: '2026-05-01'
+        endDate:
+          type: string
+          format: date
+          example: '2026-05-31'
+        note:
+          type: string
+          maxLength: 200
+          nullable: true
+      required: [type, startDate, endDate]
+
+    AvailabilityRule:
+      allOf:
+        - $ref: '#/components/schemas/AvailabilityRuleInput'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+              example: 1
+            createdAt:
+              type: string
+              format: date-time
+          required: [id, createdAt]
+
+    AvailabilityCheckResponse:
+      type: object
+      properties:
+        accommodationId:
+          type: integer
+          format: int64
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        available:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+          example: Accommodation is already booked for the selected dates
+      required: [accommodationId, startDate, endDate, available]
+
+    AvailabilityCalendarResponse:
+      type: object
+      properties:
+        accommodationId:
+          type: integer
+          format: int64
+        month:
+          type: string
+          example: '2026-05'
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityCalendarDay'
+      required: [accommodationId, month, days]
+
+    AvailabilityCalendarDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/AvailabilityDayStatus'
+        reservationId:
+          type: integer
+          format: int64
+          nullable: true
+      required: [date, status]
+
     CreateReservationRequest:
       type: object
       description: Request body for creating a new reservation.
@@ -573,92 +2029,69 @@ components:
         accommodationId:
           type: integer
           format: int64
-          description: ID of the accommodation to reserve
           example: 1
         startDate:
           type: string
           format: date-time
-          description: Check-in date and time (must be in the future)
-          example: "2025-06-01T15:00:00"
+          example: '2026-05-10T15:00:00'
         endDate:
           type: string
           format: date-time
-          description: Check-out date and time (must be after startDate)
-          example: "2025-06-05T11:00:00"
-      required:
-        - accommodationId
-        - startDate
-        - endDate
+          example: '2026-05-12T11:00:00'
+        roomCode:
+          type: string
+          nullable: true
+          description: Optional room code if booking is room-specific.
+      required: [accommodationId, startDate, endDate]
 
     CreateReservationResponse:
       type: object
-      description: |
-        Response returned after a reservation is created.
-        Includes payment details for the mandatory 20% advance deposit.
       properties:
         id:
           type: integer
           format: int64
-          description: Unique identifier of the reservation
           example: 12345
+        bookingNumber:
+          type: string
+          example: SH-2026-000001
         startDate:
           type: string
           format: date-time
-          description: Check-in date and time
-          example: "2025-06-01T15:00:00"
         endDate:
           type: string
           format: date-time
-          description: Check-out date and time
-          example: "2025-06-05T11:00:00"
         totalPrice:
           type: number
           format: double
-          description: Total price for the reservation
-          example: 1000.00
+          example: 1000.0
         currency:
-          type: string
-          description: Currency code (ISO 4217)
-          example: "COP"
+          $ref: '#/components/schemas/CurrencyCode'
         status:
-          type: string
-          enum: [ACTIVE, COMPLETED, CANCELLED, NO_SHOW]
-          description: Current status of the reservation
-          example: "ACTIVE"
+          $ref: '#/components/schemas/ReservationStatus'
         accommodationId:
           type: integer
           format: int64
-          description: ID of the booked accommodation
-          example: 1
         accommodationTitle:
           type: string
-          description: Name of the booked accommodation
-          example: "Cabaña en el Quindío"
         userId:
           type: integer
           format: int64
-          description: ID of the guest who made the reservation
-          example: 678
         depositAmount:
           type: number
           format: double
-          description: |
-            Required advance deposit — 20% of `totalPrice`.
-            The guest must transfer this amount to `bankAccountNumber` before `paymentDeadline`.
-          example: 200.00
+          example: 200.0
+        depositPaid:
+          type: boolean
+          example: false
         bankAccountNumber:
           type: string
-          description: Bank account number where the deposit transfer must be made
-          example: "3001234567890"
+          example: '3001234567890'
         paymentDeadline:
           type: string
           format: date-time
-          description: |
-            Deadline to complete the deposit payment.
-            Calculated as 3 days from the moment the reservation is created.
-          example: "2025-04-18T09:00:00"
       required:
         - id
+        - bookingNumber
         - startDate
         - endDate
         - totalPrice
@@ -668,8 +2101,188 @@ components:
         - accommodationTitle
         - userId
         - depositAmount
+        - depositPaid
         - bankAccountNumber
         - paymentDeadline
+
+    RetrieveReservationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        bookingNumber:
+          type: string
+          example: SH-2026-000001
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        accommodationId:
+          type: integer
+          format: int64
+        accommodationTitle:
+          type: string
+        accommodationCity:
+          type: string
+        guestId:
+          type: integer
+          format: int64
+        guestEmail:
+          type: string
+          format: email
+        totalPrice:
+          type: number
+          format: double
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        depositAmount:
+          type: number
+          format: double
+        depositPaid:
+          type: boolean
+        paymentDeadline:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/ReservationStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - bookingNumber
+        - startDate
+        - endDate
+        - accommodationId
+        - accommodationTitle
+        - accommodationCity
+        - guestId
+        - guestEmail
+        - totalPrice
+        - currency
+        - depositAmount
+        - depositPaid
+        - paymentDeadline
+        - status
+        - createdAt
+        - updatedAt
+
+    RetrieveReservationSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        accommodationId:
+          type: integer
+          format: int64
+        accommodationTitle:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        totalPrice:
+          type: number
+          format: double
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        status:
+          $ref: '#/components/schemas/ReservationStatus'
+      required: [id, accommodationId, accommodationTitle, startDate, endDate, totalPrice, currency, status]
+
+    PageReservationSummary:
+      type: object
+      description: Spring Data Page of reservation summaries.
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetrieveReservationSummary'
+        number:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 10
+        totalElements:
+          type: integer
+          format: int64
+          example: 25
+        totalPages:
+          type: integer
+          example: 3
+        first:
+          type: boolean
+        last:
+          type: boolean
+      required: [content, number, size, totalElements, totalPages, first, last]
+
+    CancelReservationRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 200
+          nullable: true
+
+    ReservationPaymentSummary:
+      type: object
+      properties:
+        reservationId:
+          type: integer
+          format: int64
+        bookingNumber:
+          type: string
+        totalPrice:
+          type: number
+          format: double
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        depositAmount:
+          type: number
+          format: double
+        depositPaid:
+          type: boolean
+        paymentDeadline:
+          type: string
+          format: date-time
+        bankAccountNumber:
+          type: string
+        overdue:
+          type: boolean
+      required: [reservationId, totalPrice, currency, depositAmount, depositPaid, paymentDeadline, bankAccountNumber, overdue]
+
+    DepositPaymentReportRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          format: double
+          example: 200.0
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        reference:
+          type: string
+          nullable: true
+          example: TRX-009182
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        proofUrl:
+          type: string
+          format: uri
+          nullable: true
+      required: [amount, currency]
 
     PaymentNotification:
       type: object
@@ -678,34 +2291,236 @@ components:
         reservationId:
           type: integer
           format: int64
-          description: Unique identifier of the reservation
           example: 12345
         accommodationTitle:
           type: string
-          description: Name of the booked accommodation
-          example: "Cabaña en el Quindío"
+          example: Cabana en el Quindio
         depositAmount:
           type: number
           format: double
-          description: Pending deposit amount (20% of total price)
-          example: 200.00
+          example: 200.0
         currency:
-          type: string
-          description: Currency code (ISO 4217)
-          example: "COP"
+          $ref: '#/components/schemas/CurrencyCode'
         bankAccountNumber:
           type: string
-          description: Bank account number for the transfer
-          example: "3001234567890"
+          example: '3001234567890'
         paymentDeadline:
           type: string
           format: date-time
-          description: Deadline to complete the payment
-          example: "2025-04-18T09:00:00"
-      required:
-        - reservationId
-        - accommodationTitle
-        - depositAmount
-        - currency
-        - bankAccountNumber
-        - paymentDeadline
+      required: [reservationId, accommodationTitle, depositAmount, currency, bankAccountNumber, paymentDeadline]
+
+    NotificationType:
+      type: string
+      enum: [PAYMENT_PENDING, BOOKING_CREATED, BOOKING_CANCELLED, REVIEW_CREATED]
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          example: notif_01HXYZ...
+        type:
+          $ref: '#/components/schemas/NotificationType'
+        title:
+          type: string
+          example: Pago pendiente
+        body:
+          type: string
+          example: Tenes un deposito pendiente por pagar.
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+        data:
+          type: object
+          additionalProperties: true
+          description: Type-specific payload.
+      required: [id, type, title, body, createdAt]
+
+    PageNotification:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+      required: [content, page]
+
+    RentalPackage:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        accommodationId:
+          type: integer
+          format: int64
+        name:
+          type: string
+          example: Semana completa
+        description:
+          type: string
+          nullable: true
+        minNights:
+          type: integer
+          minimum: 1
+          example: 7
+        maxNights:
+          type: integer
+          minimum: 1
+          nullable: true
+          example: 7
+        price:
+          type: number
+          format: double
+          example: 700000
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        active:
+          type: boolean
+          example: true
+      required: [id, accommodationId, name, minNights, price, currency, active]
+
+    RentalPackageCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        minNights:
+          type: integer
+          minimum: 1
+        maxNights:
+          type: integer
+          minimum: 1
+          nullable: true
+        price:
+          type: number
+          format: double
+          minimum: 0
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        active:
+          type: boolean
+          default: true
+      required: [name, minNights, price, currency]
+
+    RentalPackageUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/RentalPackageCreateRequest'
+        - type: object
+          properties:
+            active:
+              type: boolean
+
+    ReviewCreateRequest:
+      type: object
+      properties:
+        reservationId:
+          type: integer
+          format: int64
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        comment:
+          type: string
+          maxLength: 2000
+          example: Excelente estadia.
+      required: [reservationId, rating, comment]
+
+    ReviewHostResponseRequest:
+      type: object
+      properties:
+        response:
+          type: string
+          maxLength: 2000
+          example: Gracias por tu comentario.
+      required: [response]
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        accommodationId:
+          type: integer
+          format: int64
+        reservationId:
+          type: integer
+          format: int64
+        author:
+          $ref: '#/components/schemas/UserPublic'
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        hostResponse:
+          type: string
+          nullable: true
+        hostResponseAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [id, accommodationId, reservationId, author, rating, comment, createdAt]
+
+    PageReview:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Review'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+      required: [content, page]
+
+    HostMetricsResponse:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+          nullable: true
+        to:
+          type: string
+          format: date
+          nullable: true
+        accommodationsCount:
+          type: integer
+          example: 3
+        reservationsCount:
+          type: integer
+          example: 12
+        occupancyRate:
+          type: number
+          format: double
+          example: 0.62
+        revenueTotal:
+          type: number
+          format: double
+          example: 4500000
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        averageRating:
+          type: number
+          format: double
+          nullable: true
+          example: 4.7
+      required: [accommodationsCount, reservationsCount, occupancyRate, revenueTotal, currency]
