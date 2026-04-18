@@ -140,6 +140,9 @@ public class SecurityConfig {
                                 "/openapi.yaml"
                         ).permitAll()
 
+                        // Public access to uploaded static files
+                        .requestMatchers("/uploads/**").permitAll()
+
                         // Public access to authentication endpoints
                         .requestMatchers("/api/v2/users/auth/**").permitAll()
 

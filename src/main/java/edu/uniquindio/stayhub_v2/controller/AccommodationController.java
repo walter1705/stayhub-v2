@@ -5,6 +5,7 @@ import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationDetailResponseDT
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationGetByIdResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationSummaryResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationUpdateRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.accommodation.ImageResourceDTO;
 import edu.uniquindio.stayhub_v2.dto.auth.MessageResponseDTO;
 import edu.uniquindio.stayhub_v2.service.AccommodationService;
 import edu.uniquindio.stayhub_v2.service.JWTService;
@@ -33,8 +34,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Tag(name = "Accommodation management", description = "Endpoints for managing accommodations")
 @RestController
@@ -153,5 +156,29 @@ public class AccommodationController {
         String requesterEmail = jwtService.getEmailFromToken(token);
         accommodationService.deactivateAccommodation(id, requesterEmail);
         return new ResponseEntity<>(new MessageResponseDTO("Alojamiento dado de baja con éxito."), HttpStatus.OK);
+    }
+
+    @Operation(summary = "Upload accommodation images", description = "Upload one or more images. kind=MAIN sets the cover; kind=GALLERY appends to the gallery.")
+    @PostMapping("/{id}/images")
+    public ResponseEntity<List<ImageResourceDTO>> uploadImages(
+            @PathVariable Long id,
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam(value = "kind", defaultValue = "GALLERY") String kind,
+            @RequestHeader("Authorization") String token) {
+        String requesterEmail = jwtService.getEmailFromToken(token);
+        log.info("POST /accommodations/{}/images kind={} files={}", id, kind, files.size());
+        return ResponseEntity.ok(accommodationService.uploadImages(id, files, kind, requesterEmail));
+    }
+
+    @Operation(summary = "Delete accommodation image", description = "Removes an image from the accommodation by its ID.")
+    @DeleteMapping("/{id}/images")
+    public ResponseEntity<MessageResponseDTO> deleteImage(
+            @PathVariable Long id,
+            @RequestParam("imageId") String imageId,
+            @RequestHeader("Authorization") String token) {
+        String requesterEmail = jwtService.getEmailFromToken(token);
+        log.info("DELETE /accommodations/{}/images imageId={}", id, imageId);
+        accommodationService.deleteImage(id, imageId, requesterEmail);
+        return ResponseEntity.ok(new MessageResponseDTO("Imagen eliminada con éxito."));
     }
 }

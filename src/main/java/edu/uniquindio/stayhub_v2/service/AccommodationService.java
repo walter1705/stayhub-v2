@@ -5,6 +5,7 @@ import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationDetailResponseDT
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationGetByIdResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationSummaryResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationUpdateRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.accommodation.ImageResourceDTO;
 import edu.uniquindio.stayhub_v2.exception.AccommodationNotFoundException;
 import edu.uniquindio.stayhub_v2.mapper.AccommodationMapper;
 import edu.uniquindio.stayhub_v2.model.Accommodation;
@@ -12,6 +13,7 @@ import edu.uniquindio.stayhub_v2.model.User;
 import edu.uniquindio.stayhub_v2.repository.AccommodationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.multipart.MultipartFile;
 import edu.uniquindio.stayhub_v2.exception.ActiveReservationsException;
 import edu.uniquindio.stayhub_v2.exception.UnauthorizedHostException;
 import edu.uniquindio.stayhub_v2.model.ReservationStatus;
@@ -24,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -91,6 +95,7 @@ import java.util.UUID;
 public class AccommodationService {
 
     private final AccommodationRepository accommodationRepository;
+    private final ImageStorageService imageStorageService;
     private final AccommodationMapper accommodationMapper;
     private final ReservationRepository reservationRepository;
     private final UserService userService;
@@ -382,4 +387,53 @@ public class AccommodationService {
      *     // Or apply price change only to future reservations
      * }
      */
+
+    @Transactional
+    public List<ImageResourceDTO> uploadImages(Long id, List<MultipartFile> files, String kind, String requesterEmail) {
+        Accommodation accommodation = accommodationRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() -> new AccommodationNotFoundException("Accommodation not found with id: " + id));
+
+        if (!accommodation.getHost().getEmail().equals(requesterEmail)) {
+            throw new UnauthorizedHostException("No tenés permisos para modificar este alojamiento.");
+        }
+
+        List<ImageResourceDTO> result = new ArrayList<>();
+        for (MultipartFile file : files) {
+            ImageResourceDTO saved = imageStorageService.save(id, file);
+            result.add(saved);
+
+            if ("MAIN".equalsIgnoreCase(kind)) {
+                accommodation.setMainImage(saved.url());
+            } else {
+                if (accommodation.getImages() == null) {
+                    accommodation.setImages(new ArrayList<>());
+                }
+                accommodation.getImages().add(saved.url());
+            }
+        }
+
+        accommodationRepository.save(accommodation);
+        log.info("Uploaded {} image(s) ({}) for accommodation {}", files.size(), kind, id);
+        return result;
+    }
+
+    @Transactional
+    public void deleteImage(Long id, String imageId, String requesterEmail) {
+        Accommodation accommodation = accommodationRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() -> new AccommodationNotFoundException("Accommodation not found with id: " + id));
+
+        if (!accommodation.getHost().getEmail().equals(requesterEmail)) {
+            throw new UnauthorizedHostException("No tenés permisos para modificar este alojamiento.");
+        }
+
+        if (accommodation.getMainImage() != null && accommodation.getMainImage().contains(imageId)) {
+            accommodation.setMainImage(null);
+        } else if (accommodation.getImages() != null) {
+            accommodation.getImages().removeIf(url -> url.contains(imageId));
+        }
+
+        imageStorageService.delete(id, imageId);
+        accommodationRepository.save(accommodation);
+        log.info("Deleted image {} from accommodation {}", imageId, id);
+    }
 }
