@@ -4,6 +4,7 @@ import edu.uniquindio.stayhub_v2.dto.reservation.CancelReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.CreateReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.CreateReservationResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.DepositPaymentReportRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.reservation.RescheduleReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.ReservationPaymentSummaryDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.RetrieveReservationResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.RetrieveReservationSummaryResponseDTO;
@@ -612,6 +613,104 @@ public class ReservationService {
 
         applicationEventPublisher.publishEvent(new ReservationCreatedEvent(reservation));
         log.info("Confirmation email resent for reservation {}", reservationId);
+    }
+
+    /**
+     * Reschedules an ACTIVE reservation by updating its start and end dates.
+     *
+     * <p>Only the guest who made the reservation can reschedule it.
+     * The new dates must not overlap with other active reservations for the same accommodation.
+     * Total price and deposit amount are recalculated based on the new dates.</p>
+     *
+     * @param reservationId The ID of the reservation to reschedule
+     * @param request       The new start and end dates
+     * @return RetrieveReservationResponseDTO with updated reservation details
+     * @throws ReservationNotFoundException if the reservation does not exist
+     * @throws AccessDeniedException        if the authenticated user is not the guest
+     * @throws IllegalStateException        if the reservation is not ACTIVE or new dates overlap
+     * @throws IllegalArgumentException     if the new dates are invalid
+     */
+    @Transactional
+    public RetrieveReservationResponseDTO rescheduleReservation(Long reservationId,
+                                                                RescheduleReservationRequestDTO request) {
+        log.info("Rescheduling reservation ID: {}", reservationId);
+
+        // 1. Get current authenticated user
+        User currentUser = userService.getCurrentUser();
+
+        // 2. Find the reservation or throw 404
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> {
+                    log.warn("Reschedule failed: Reservation not found with ID: {}", reservationId);
+                    return new ReservationNotFoundException("Reservation not found: " + reservationId);
+                });
+
+        // 3. Validate that the authenticated user is the guest
+        boolean isGuest = reservation.getGuest().getId().equals(currentUser.getId());
+        if (!isGuest) {
+            log.warn("Reschedule denied: user {} is not the guest of reservation {}",
+                    currentUser.getEmail(), reservationId);
+            throw new AccessDeniedException("Solo el huésped puede modificar las fechas de la reserva.");
+        }
+
+        // 4. Validate that the reservation is ACTIVE
+        if (reservation.getStatus() != ReservationStatus.ACTIVE) {
+            throw new IllegalStateException("Solo se pueden modificar reservas activas. Estado actual: "
+                    + reservation.getStatus());
+        }
+
+        // 5. Validate date logic: endDate must be after startDate
+        if (!request.endDate().isAfter(request.startDate())) {
+            throw new IllegalArgumentException("La fecha de salida debe ser posterior a la fecha de entrada.");
+        }
+
+        // 6. Validate startDate is in the future (already enforced by @Future, but belt-and-suspenders)
+        if (!request.startDate().isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("La fecha de entrada debe ser en el futuro.");
+        }
+
+        // 7. Check availability excluding the current reservation
+        boolean isOverlapping = reservationRepository.existsByAccommodationIdAndDateRangeExcludingReservation(
+                reservation.getAccommodation().getId(),
+                request.startDate(),
+                request.endDate(),
+                reservationId
+        );
+        if (isOverlapping) {
+            log.warn("Reschedule failed: Accommodation {} is already booked for new dates {} to {}",
+                    reservation.getAccommodation().getId(), request.startDate(), request.endDate());
+            throw new IllegalStateException("El alojamiento no está disponible para las nuevas fechas.");
+        }
+
+        // 8. Recalculate total price
+        long nights = ChronoUnit.DAYS.between(
+                request.startDate().toLocalDate(),
+                request.endDate().toLocalDate()
+        );
+        if (nights <= 0) {
+            throw new IllegalArgumentException("La reserva debe ser de al menos una noche.");
+        }
+
+        BigDecimal newTotalPrice = reservation.getAccommodation().getPricePerNight()
+                .multiply(BigDecimal.valueOf(nights));
+
+        // 9. Recalculate deposit (20%)
+        BigDecimal newDepositAmount = newTotalPrice
+                .multiply(BigDecimal.valueOf(depositPercentage))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+        // 10. Update reservation fields
+        reservation.setStartDate(request.startDate());
+        reservation.setEndDate(request.endDate());
+        reservation.setTotalPrice(newTotalPrice);
+        reservation.setDepositAmount(newDepositAmount);
+
+        // 11. Persist and return
+        Reservation saved = reservationRepository.save(reservation);
+        log.info("Reservation {} rescheduled successfully by {} — new dates: {} to {}, new total: {}",
+                reservationId, currentUser.getEmail(), request.startDate(), request.endDate(), newTotalPrice);
+
+        return reservationMapper.toRetrieveDTO(saved);
     }
 
     private ReservationPaymentSummaryDTO toPaymentSummary(Reservation r) {

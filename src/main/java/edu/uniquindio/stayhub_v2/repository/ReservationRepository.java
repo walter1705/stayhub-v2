@@ -340,4 +340,31 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to
     );
+
+    /**
+     * Checks if an accommodation has any active reservation that overlaps with
+     * a specified date range, excluding a specific reservation ID.
+     *
+     * <p>Used during reschedule operations to validate the new dates don't conflict
+     * with other existing reservations (excluding the reservation being rescheduled).</p>
+     *
+     * @param accommodationId       The ID of the accommodation to check availability for
+     * @param startDate             The proposed new check-in date and time
+     * @param endDate               The proposed new check-out date and time
+     * @param excludeReservationId  The ID of the reservation being rescheduled (excluded from check)
+     * @return {@code true} if there is an overlapping active reservation, {@code false} if available
+     */
+    @Query("""
+            SELECT COUNT(r) > 0 FROM Reservation r
+            WHERE r.accommodation.id = :accommodationId
+            AND r.status = 'ACTIVE'
+            AND r.id != :excludeReservationId
+            AND (r.startDate < :endDate AND r.endDate > :startDate)
+            """)
+    boolean existsByAccommodationIdAndDateRangeExcludingReservation(
+            @Param("accommodationId") Long accommodationId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("excludeReservationId") Long excludeReservationId
+    );
 }

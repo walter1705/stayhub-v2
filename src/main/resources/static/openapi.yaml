@@ -927,6 +927,41 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /api/v2/bookings/{reservationId}/reschedule:
+    patch:
+      tags: [Bookings]
+      summary: Reschedule a reservation
+      description: Updates the start and end dates of an ACTIVE reservation. Only the booking guest can reschedule.
+      operationId: rescheduleReservation
+      parameters:
+        - in: path
+          name: reservationId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RescheduleReservationRequest'
+      responses:
+        '200':
+          description: Reservation rescheduled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Dates not available
+
   /api/v2/bookings/{reservationId}/payment-summary:
     get:
       tags: [Payments]
@@ -2233,6 +2268,17 @@ components:
           type: string
           maxLength: 200
           nullable: true
+
+    RescheduleReservationRequest:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+      required: [startDate, endDate]
 
     ReservationPaymentSummary:
       type: object

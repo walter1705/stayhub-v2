@@ -5,6 +5,7 @@ import edu.uniquindio.stayhub_v2.dto.reservation.CancelReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.CreateReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.CreateReservationResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.DepositPaymentReportRequestDTO;
+import edu.uniquindio.stayhub_v2.dto.reservation.RescheduleReservationRequestDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.ReservationPaymentSummaryDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.RetrieveReservationResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.reservation.RetrieveReservationSummaryResponseDTO;
@@ -220,5 +221,14 @@ public class BookingController {
         log.info("POST /bookings/{}/confirmation/resend", reservationId);
         reservationService.resendConfirmation(reservationId);
         return ResponseEntity.ok(new MessageResponseDTO("Confirmación reenviada exitosamente"));
+    }
+
+    @Operation(summary = "Reschedule a reservation", description = "Updates start and end dates of an ACTIVE reservation. Only the guest can reschedule.")
+    @PatchMapping("/{reservationId}/reschedule")
+    public ResponseEntity<RetrieveReservationResponseDTO> rescheduleReservation(
+            @PathVariable Long reservationId,
+            @Valid @RequestBody RescheduleReservationRequestDTO requestDTO) {
+        log.info("PATCH /bookings/{}/reschedule", reservationId);
+        return ResponseEntity.ok(reservationService.rescheduleReservation(reservationId, requestDTO));
     }
 }
