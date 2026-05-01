@@ -13,6 +13,7 @@ import edu.uniquindio.stayhub_v2.exception.AccommodationNotFoundException;
 import edu.uniquindio.stayhub_v2.exception.ReservationNotFoundException;
 import edu.uniquindio.stayhub_v2.mapper.ReservationMapper;
 import edu.uniquindio.stayhub_v2.model.*;
+import edu.uniquindio.stayhub_v2.model.RentalType;
 import edu.uniquindio.stayhub_v2.repository.AccommodationRepository;
 import edu.uniquindio.stayhub_v2.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
@@ -225,6 +226,14 @@ public class ReservationService {
                             createReservationRequestDTO.accommodationId());
                     return new AccommodationNotFoundException("Accommodation not found");
                 });
+
+        // 1b. Validate rental type: POR_HABITACION requires a roomCode
+        if (accommodation.getRentalType() == RentalType.POR_HABITACION
+                && (createReservationRequestDTO.roomCode() == null
+                        || createReservationRequestDTO.roomCode().isBlank())) {
+            throw new IllegalArgumentException(
+                    "Este alojamiento solo acepta reservas por habitación. Debes especificar un roomCode.");
+        }
 
         // 2. Check availability (no overlapping active reservations)
         boolean isOverlapping = reservationRepository.existsByAccommodationIdAndDateRange(

@@ -31,7 +31,10 @@ public record CreateReservationRequestDTO(
         @Schema(description = "Check-out date", example = "2025-06-05")
         @NotNull(message = "End date is required")
         @Future(message = "End date must be in the future")
-        LocalDateTime endDate
+        LocalDateTime endDate,
+
+        @Schema(description = "Room code (required when accommodation rental type is POR_HABITACION)", nullable = true, example = "HAB-01")
+        String roomCode
 ) {
     public CreateReservationRequestDTO {
         if (startDate != null && endDate != null && !endDate.isAfter(startDate)) {

@@ -1,6 +1,7 @@
 package edu.uniquindio.stayhub_v2.dto.accommodation;
 
 import edu.uniquindio.stayhub_v2.dto.user.UserPublicDTO;
+import edu.uniquindio.stayhub_v2.model.RentalType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -26,5 +27,6 @@ public record AccommodationDetailResponseDTO(
         List<String> images,
         AccommodationLegalInfoDTO legal,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        RentalType rentalType
 ) {}

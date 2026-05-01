@@ -1482,6 +1482,11 @@ components:
       type: string
       enum: [ACTIVE, COMPLETED, CANCELLED, NO_SHOW]
 
+    RentalType:
+      type: string
+      enum: [CASA_ENTERA, POR_HABITACION, AMBAS]
+      example: CASA_ENTERA
+
     CurrencyCode:
       type: string
       pattern: '^[A-Z]{3}$'
@@ -1756,6 +1761,8 @@ components:
           default: true
         legal:
           $ref: '#/components/schemas/AccommodationLegalInfo'
+        rentalType:
+          $ref: '#/components/schemas/RentalType'
       required: [title, description, capacity, currency, pricePerNight, longitude, latitude, locationDescription, city, legal]
 
     AccommodationUpdateRequest:
@@ -1829,6 +1836,8 @@ components:
           nullable: true
         available:
           type: boolean
+        rentalType:
+          $ref: '#/components/schemas/RentalType'
       required: [id, code, title, city, capacity, currency, pricePerNight, available]
 
     AccommodationDetail:
@@ -1863,6 +1872,8 @@ components:
             updatedAt:
               type: string
               format: date-time
+            rentalType:
+              $ref: '#/components/schemas/RentalType'
           required: [description, host, longitude, latitude, locationDescription, images, legal, createdAt, updatedAt]
 
     PagedAccommodationSummary:

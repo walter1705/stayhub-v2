@@ -5,6 +5,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -256,6 +258,11 @@ public class Accommodation extends Auditable {
      * List<Accommodation> activeListings = repository.findByDeletedFalse();
      * }</pre>
      */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rental_type", nullable = false)
+    @Builder.Default
+    private RentalType rentalType = RentalType.CASA_ENTERA;
+
     @Column(name = "deleted", nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
     @Builder.Default
     private boolean deleted = false;

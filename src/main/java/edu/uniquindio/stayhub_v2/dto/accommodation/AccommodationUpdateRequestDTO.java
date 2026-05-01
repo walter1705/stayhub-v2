@@ -1,5 +1,6 @@
 package edu.uniquindio.stayhub_v2.dto.accommodation;
 
+import edu.uniquindio.stayhub_v2.model.RentalType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -40,5 +41,7 @@ public record AccommodationUpdateRequestDTO(
         Boolean available,
 
         @Valid
-        AccommodationLegalInfoDTO legal
+        AccommodationLegalInfoDTO legal,
+
+        RentalType rentalType
 ) {}

@@ -8,6 +8,7 @@ import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationSummaryResponseD
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationUpdateRequestDTO;
 import edu.uniquindio.stayhub_v2.model.Accommodation;
 import edu.uniquindio.stayhub_v2.model.AccommodationLegalInfo;
+import edu.uniquindio.stayhub_v2.model.RentalType;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -82,6 +83,7 @@ public interface AccommodationMapper {
     @Mapping(target = "reservations", ignore = true)
     @Mapping(target = "currency", expression = "java(stringToCurrency(dto.currency()))")
     @Mapping(target = "available", expression = "java(dto.available() != null ? dto.available() : true)")
+    @Mapping(target = "rentalType", expression = "java(dto.rentalType() != null ? dto.rentalType() : RentalType.CASA_ENTERA)")
     Accommodation toEntity(AccommodationCreateRequestDTO dto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

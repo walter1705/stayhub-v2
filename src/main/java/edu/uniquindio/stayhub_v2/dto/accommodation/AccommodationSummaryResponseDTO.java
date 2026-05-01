@@ -1,5 +1,6 @@
 package edu.uniquindio.stayhub_v2.dto.accommodation;
 
+import edu.uniquindio.stayhub_v2.model.RentalType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -31,5 +32,8 @@ public record AccommodationSummaryResponseDTO(
         String mainImage,
 
         @Schema(description = "Whether the accommodation is available for booking")
-        boolean available
+        boolean available,
+
+        @Schema(description = "Rental type", example = "CASA_ENTERA")
+        RentalType rentalType
 ) {}
