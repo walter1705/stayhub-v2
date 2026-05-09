@@ -73,6 +73,9 @@ public record AccommodationGetByIdResponseDTO (
         @Schema(description = "A list of URLs for additional images of the accommodation")
         List<@URL String> images,
 
+        @Schema(description = "Named services and quantities available in the property")
+        List<AccommodationServiceDTO> services,
+
         @NotNull(message = "Available cannot be null")
         @Schema(description = "Indicates whether the accommodation is currently available for booking")
         boolean available

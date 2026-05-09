@@ -60,6 +60,9 @@ class ReservationServiceTest {
     @Mock
     private ApplicationEventPublisher applicationEventPublisher;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private ReservationService reservationService;
 
@@ -134,7 +137,7 @@ class ReservationServiceTest {
         // Arrange
         LocalDateTime start = LocalDateTime.now().plusDays(10);
         LocalDateTime end = LocalDateTime.now().plusDays(13);
-        CreateReservationRequestDTO request = new CreateReservationRequestDTO(10L, start, end);
+        CreateReservationRequestDTO request = new CreateReservationRequestDTO(10L, start, end, null);
 
         when(accommodationRepository.findById(10L)).thenReturn(Optional.of(accommodation));
         when(reservationRepository.existsByAccommodationIdAndDateRange(any(), any(), any())).thenReturn(false);
@@ -163,7 +166,7 @@ class ReservationServiceTest {
         //            20% of 600,000 = 120,000
         LocalDateTime start = LocalDateTime.now().plusDays(10);
         LocalDateTime end = LocalDateTime.now().plusDays(13);
-        CreateReservationRequestDTO request = new CreateReservationRequestDTO(10L, start, end);
+        CreateReservationRequestDTO request = new CreateReservationRequestDTO(10L, start, end, null);
 
         when(accommodationRepository.findById(10L)).thenReturn(Optional.of(accommodation));
         when(reservationRepository.existsByAccommodationIdAndDateRange(any(), any(), any())).thenReturn(false);
@@ -190,7 +193,7 @@ class ReservationServiceTest {
 
         LocalDateTime start = LocalDateTime.now().plusDays(10);
         LocalDateTime end = LocalDateTime.now().plusDays(13);
-        CreateReservationRequestDTO request = new CreateReservationRequestDTO(10L, start, end);
+        CreateReservationRequestDTO request = new CreateReservationRequestDTO(10L, start, end, null);
 
         when(accommodationRepository.findById(10L)).thenReturn(Optional.of(accommodation));
         when(reservationRepository.existsByAccommodationIdAndDateRange(any(), any(), any())).thenReturn(false);
@@ -210,7 +213,7 @@ class ReservationServiceTest {
         // Arrange
         LocalDateTime start = LocalDateTime.now().plusDays(10);
         LocalDateTime end = LocalDateTime.now().plusDays(13);
-        CreateReservationRequestDTO request = new CreateReservationRequestDTO(10L, start, end);
+        CreateReservationRequestDTO request = new CreateReservationRequestDTO(10L, start, end, null);
 
         when(accommodationRepository.findById(10L)).thenReturn(Optional.of(accommodation));
         when(reservationRepository.existsByAccommodationIdAndDateRange(any(), any(), any())).thenReturn(false);
@@ -236,7 +239,7 @@ class ReservationServiceTest {
     void createReservation_AccommodationNotFound_ThrowsException() {
         LocalDateTime start = LocalDateTime.now().plusDays(10);
         LocalDateTime end = LocalDateTime.now().plusDays(13);
-        CreateReservationRequestDTO request = new CreateReservationRequestDTO(999L, start, end);
+        CreateReservationRequestDTO request = new CreateReservationRequestDTO(999L, start, end, null);
 
         when(accommodationRepository.findById(999L)).thenReturn(Optional.empty());
 
@@ -250,7 +253,7 @@ class ReservationServiceTest {
     void createReservation_DatesOverlapping_ThrowsIllegalStateException() {
         LocalDateTime start = LocalDateTime.now().plusDays(10);
         LocalDateTime end = LocalDateTime.now().plusDays(13);
-        CreateReservationRequestDTO request = new CreateReservationRequestDTO(10L, start, end);
+        CreateReservationRequestDTO request = new CreateReservationRequestDTO(10L, start, end, null);
 
         when(accommodationRepository.findById(10L)).thenReturn(Optional.of(accommodation));
         when(reservationRepository.existsByAccommodationIdAndDateRange(any(), any(), any())).thenReturn(true);

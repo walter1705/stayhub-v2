@@ -4,10 +4,12 @@ import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationCreateRequestDTO
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationDetailResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationGetByIdResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationLegalInfoDTO;
+import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationServiceDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationSummaryResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationUpdateRequestDTO;
 import edu.uniquindio.stayhub_v2.model.Accommodation;
 import edu.uniquindio.stayhub_v2.model.AccommodationLegalInfo;
+import edu.uniquindio.stayhub_v2.model.AccommodationServiceItem;
 import edu.uniquindio.stayhub_v2.model.RentalType;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
@@ -16,6 +18,8 @@ import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 
 import java.util.Currency;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Mapper interface for converting Accommodation entities to DTOs.
@@ -64,6 +68,24 @@ public interface AccommodationMapper {
         return code == null ? null : Currency.getInstance(code);
     }
 
+    default List<AccommodationServiceDTO> toServiceDTOs(List<AccommodationServiceItem> services) {
+        if (services == null) {
+            return List.of();
+        }
+        return services.stream()
+                .map(service -> new AccommodationServiceDTO(service.getName(), service.getQuantity()))
+                .toList();
+    }
+
+    default List<AccommodationServiceItem> toServiceItems(List<AccommodationServiceDTO> services) {
+        if (services == null) {
+            return new ArrayList<>();
+        }
+        return services.stream()
+                .map(service -> new AccommodationServiceItem(service.name(), service.quantity()))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+    }
+
     // ── Detail / Summary ─────────────────────────────────────────────────────
 
     @Mapping(target = "currency", expression = "java(currencyToString(accommodation.getCurrency()))")
@@ -84,6 +106,7 @@ public interface AccommodationMapper {
     @Mapping(target = "currency", expression = "java(stringToCurrency(dto.currency()))")
     @Mapping(target = "available", expression = "java(dto.available() != null ? dto.available() : true)")
     @Mapping(target = "rentalType", expression = "java(dto.rentalType() != null ? dto.rentalType() : RentalType.CASA_ENTERA)")
+    @Mapping(target = "services", expression = "java(toServiceItems(dto.services()))")
     Accommodation toEntity(AccommodationCreateRequestDTO dto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
@@ -95,6 +118,7 @@ public interface AccommodationMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "reservations", ignore = true)
     @Mapping(target = "currency", expression = "java(dto.currency() != null ? stringToCurrency(dto.currency()) : accommodation.getCurrency())")
+    @Mapping(target = "services", expression = "java(dto.services() != null ? toServiceItems(dto.services()) : accommodation.getServices())")
     void updateFromDto(AccommodationUpdateRequestDTO dto, @MappingTarget Accommodation accommodation);
 
     AccommodationLegalInfoDTO toLegalInfoDTO(AccommodationLegalInfo legal);

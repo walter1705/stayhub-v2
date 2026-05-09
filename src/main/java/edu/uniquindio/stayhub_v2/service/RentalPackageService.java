@@ -3,8 +3,10 @@ package edu.uniquindio.stayhub_v2.service;
 import edu.uniquindio.stayhub_v2.dto.rentalpackage.RentalPackageCreateRequest;
 import edu.uniquindio.stayhub_v2.dto.rentalpackage.RentalPackageDTO;
 import edu.uniquindio.stayhub_v2.dto.rentalpackage.RentalPackageUpdateRequest;
+import edu.uniquindio.stayhub_v2.exception.UnauthorizedHostException;
 import edu.uniquindio.stayhub_v2.model.Accommodation;
 import edu.uniquindio.stayhub_v2.model.RentalPackage;
+import edu.uniquindio.stayhub_v2.model.User;
 import edu.uniquindio.stayhub_v2.repository.AccommodationRepository;
 import edu.uniquindio.stayhub_v2.repository.RentalPackageRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ public class RentalPackageService {
 
     private final RentalPackageRepository rentalPackageRepository;
     private final AccommodationRepository accommodationRepository;
+    private final UserService userService;
 
     @Transactional(readOnly = true)
     public List<RentalPackageDTO> list(Long accommodationId) {
@@ -33,8 +36,9 @@ public class RentalPackageService {
 
     @Transactional
     public RentalPackageDTO create(Long accommodationId, RentalPackageCreateRequest req) {
-        Accommodation accommodation = accommodationRepository.findById(accommodationId)
+        Accommodation accommodation = accommodationRepository.findByIdAndDeletedFalse(accommodationId)
                 .orElseThrow(() -> new NoSuchElementException("Accommodation not found: " + accommodationId));
+        validateOwnership(accommodation);
         RentalPackage pkg = RentalPackage.builder()
                 .accommodation(accommodation)
                 .name(req.name())
@@ -52,6 +56,7 @@ public class RentalPackageService {
     public RentalPackageDTO update(Long packageId, RentalPackageUpdateRequest req) {
         RentalPackage pkg = rentalPackageRepository.findById(packageId)
                 .orElseThrow(() -> new NoSuchElementException("Package not found: " + packageId));
+        validateOwnership(pkg.getAccommodation());
         pkg.setName(req.name());
         pkg.setDescription(req.description());
         pkg.setMinNights(req.minNights());
@@ -64,10 +69,17 @@ public class RentalPackageService {
 
     @Transactional
     public void delete(Long packageId) {
-        if (!rentalPackageRepository.existsById(packageId)) {
-            throw new NoSuchElementException("Package not found: " + packageId);
+        RentalPackage pkg = rentalPackageRepository.findById(packageId)
+                .orElseThrow(() -> new NoSuchElementException("Package not found: " + packageId));
+        validateOwnership(pkg.getAccommodation());
+        rentalPackageRepository.delete(pkg);
+    }
+
+    private void validateOwnership(Accommodation accommodation) {
+        User currentUser = userService.getCurrentUser();
+        if (!accommodation.getHost().getId().equals(currentUser.getId())) {
+            throw new UnauthorizedHostException("No tienes permisos para gestionar los paquetes de este alojamiento.");
         }
-        rentalPackageRepository.deleteById(packageId);
     }
 
     private RentalPackageDTO toDTO(RentalPackage pkg) {

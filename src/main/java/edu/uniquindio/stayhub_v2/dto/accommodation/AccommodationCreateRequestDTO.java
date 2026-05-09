@@ -63,5 +63,9 @@ public record AccommodationCreateRequestDTO(
         AccommodationLegalInfoDTO legal,
 
         @Schema(description = "Rental type", example = "CASA_ENTERA", nullable = true)
-        RentalType rentalType
+        RentalType rentalType,
+
+        @Valid
+        @Schema(description = "Named services and quantities available in the property")
+        List<AccommodationServiceDTO> services
 ) {}

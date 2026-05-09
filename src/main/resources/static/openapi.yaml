@@ -1704,6 +1704,19 @@ components:
           nullable: true
       required: [registrationNumber, addressLine1, country]
 
+    AccommodationService:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 80
+          example: Habitaciones
+        quantity:
+          type: integer
+          minimum: 1
+          example: 3
+      required: [name, quantity]
+
     AccommodationCreateRequest:
       type: object
       description: |
@@ -1763,6 +1776,10 @@ components:
           $ref: '#/components/schemas/AccommodationLegalInfo'
         rentalType:
           $ref: '#/components/schemas/RentalType'
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccommodationService'
       required: [title, description, capacity, currency, pricePerNight, longitude, latitude, locationDescription, city, legal]
 
     AccommodationUpdateRequest:
@@ -1803,6 +1820,12 @@ components:
           type: boolean
         legal:
           $ref: '#/components/schemas/AccommodationLegalInfo'
+        rentalType:
+          $ref: '#/components/schemas/RentalType'
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccommodationService'
       additionalProperties: false
 
     AccommodationSummary:
@@ -1838,6 +1861,10 @@ components:
           type: boolean
         rentalType:
           $ref: '#/components/schemas/RentalType'
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccommodationService'
       required: [id, code, title, city, capacity, currency, pricePerNight, available]
 
     AccommodationDetail:
@@ -1874,6 +1901,10 @@ components:
               format: date-time
             rentalType:
               $ref: '#/components/schemas/RentalType'
+            services:
+              type: array
+              items:
+                $ref: '#/components/schemas/AccommodationService'
           required: [description, host, longitude, latitude, locationDescription, images, legal, createdAt, updatedAt]
 
     PagedAccommodationSummary:

@@ -23,6 +23,7 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.validator.constraints.URL;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
 
@@ -228,6 +229,14 @@ public class Accommodation extends Auditable {
     )
     @Column(name = "image_url")
     private List<@URL(message = "Each image must be a valid URL") String> images;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "accommodation_services",
+            joinColumns = @JoinColumn(name = "accommodation_id")
+    )
+    @Builder.Default
+    private List<AccommodationServiceItem> services = new ArrayList<>();
 
     /**
      * List of reservations made for this accommodation.

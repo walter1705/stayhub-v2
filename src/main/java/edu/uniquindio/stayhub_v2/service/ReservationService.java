@@ -112,6 +112,7 @@ public class ReservationService {
     private final AccommodationRepository accommodationRepository;
     private final ReservationRepository reservationRepository;
     private final UserService userService;
+    private final NotificationService notificationService;
     private final ReservationMapper reservationMapper;
     private final ApplicationEventPublisher applicationEventPublisher;
 
@@ -296,6 +297,17 @@ public class ReservationService {
         // 7. Persist reservation
         Reservation saved = reservationRepository.save(reservation);
         log.info("Reservation created successfully with ID: {}", saved.getId());
+
+        createHostNotification(
+                saved,
+                NotificationType.BOOKING_CREATED,
+                "Nueva reserva recibida",
+                String.format(
+                        "%s reservó %s del %s al %s.",
+                        user.getFullName(),
+                        accommodation.getTitle(),
+                        createReservationRequestDTO.startDate().toLocalDate(),
+                        createReservationRequestDTO.endDate().toLocalDate()));
 
         // 8. Publish event for async processing (emails, notifications, etc.)
         applicationEventPublisher.publishEvent(new ReservationCreatedEvent(saved));
@@ -563,6 +575,15 @@ public class ReservationService {
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservation.setCancellationReason(reason);
         Reservation saved = reservationRepository.save(reservation);
+        createHostNotification(
+                saved,
+                NotificationType.BOOKING_CANCELLED,
+                "Reserva cancelada",
+                String.format(
+                        "La reserva #%s de %s para %s fue cancelada.",
+                        saved.getId(),
+                        reservation.getGuest().getFullName(),
+                        reservation.getAccommodation().getTitle()));
         log.info("Reservation {} cancelled by {}", reservationId, currentUser.getEmail());
         return reservationMapper.toRetrieveDTO(saved);
     }
@@ -622,6 +643,14 @@ public class ReservationService {
 
         applicationEventPublisher.publishEvent(new ReservationCreatedEvent(reservation));
         log.info("Confirmation email resent for reservation {}", reservationId);
+    }
+
+    private void createHostNotification(Reservation reservation,
+                                        NotificationType type,
+                                        String title,
+                                        String body) {
+        Long hostId = reservation.getAccommodation().getHost().getId();
+        notificationService.createNotification(hostId, type, title, body);
     }
 
     /**

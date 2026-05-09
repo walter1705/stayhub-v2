@@ -177,6 +177,11 @@
 			<version>3.27.7</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<!-- .env loading removed. If you need it back, re-add spring-dotenv. -->
 	</dependencies>
 

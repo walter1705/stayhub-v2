@@ -4,12 +4,14 @@ import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationCreateRequestDTO
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationDetailResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationGetByIdResponseDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationLegalInfoDTO;
+import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationServiceDTO;
 import edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationSummaryResponseDTO;
 import edu.uniquindio.stayhub_v2.exception.AccommodationNotFoundException;
 import edu.uniquindio.stayhub_v2.exception.ActiveReservationsException;
 import edu.uniquindio.stayhub_v2.exception.UnauthorizedHostException;
 import edu.uniquindio.stayhub_v2.mapper.AccommodationMapper;
 import edu.uniquindio.stayhub_v2.model.Accommodation;
+import edu.uniquindio.stayhub_v2.model.RentalType;
 import edu.uniquindio.stayhub_v2.model.ReservationStatus;
 import edu.uniquindio.stayhub_v2.model.User;
 import edu.uniquindio.stayhub_v2.repository.AccommodationRepository;
@@ -143,7 +145,7 @@ public class AccommodationServiceTest {
         void getAccommodation_Successful() {
                 AccommodationGetByIdResponseDTO mockResponse = new AccommodationGetByIdResponseDTO(
                                 null, "Title", "Desc", 4, new java.math.BigDecimal("100"), "main.jpg", "loc", "city",
-                                java.util.List.of(), true);
+                                java.util.List.of(), java.util.List.of(), true);
                 when(accommodationRepository.findByIdAndDeletedFalse(100L)).thenReturn(Optional.of(testAccommodation));
                 when(accommodationMapper.toAccommodationGetByIdResponseDTO(testAccommodation)).thenReturn(mockResponse);
 
@@ -170,14 +172,16 @@ public class AccommodationServiceTest {
                 AccommodationCreateRequestDTO request = new AccommodationCreateRequestDTO(
                                 "Test", "Desc", 4, "COP", BigDecimal.valueOf(100000),
                                 null, -75.0, 4.5, "Near park", "Armenia",
-                                null, true, legalDTO);
+                                null, true, legalDTO, RentalType.CASA_ENTERA,
+                                List.of(new AccommodationServiceDTO("Habitaciones", 3)));
 
                 when(userService.getCurrentUser()).thenReturn(hostUser);
                 when(accommodationRepository.save(any(Accommodation.class))).thenReturn(testAccommodation);
                 AccommodationDetailResponseDTO mockDetail = new AccommodationDetailResponseDTO(
                                 100L, "ARM-ABC123", "Test", "Armenia", 4, "COP",
                                 BigDecimal.valueOf(100000), null, true, "Desc",
-                                null, -75.0, 4.5, "Near park", List.of(), null, null, null);
+                                null, -75.0, 4.5, "Near park", List.of(), null, null, null, RentalType.CASA_ENTERA,
+                                List.of(new AccommodationServiceDTO("Habitaciones", 3)));
                 when(accommodationMapper.toDetailDTO(testAccommodation)).thenReturn(mockDetail);
                 when(accommodationMapper.toEntity(request)).thenReturn(testAccommodation);
 
@@ -194,7 +198,8 @@ public class AccommodationServiceTest {
                 AccommodationDetailResponseDTO mockDetail = new AccommodationDetailResponseDTO(
                                 100L, "ARM-ABC123", "Test", "Armenia", 4, "COP",
                                 BigDecimal.valueOf(100000), null, true, "Desc",
-                                null, -75.0, 4.5, "Near park", List.of(), null, null, null);
+                                null, -75.0, 4.5, "Near park", List.of(), null, null, null, RentalType.CASA_ENTERA,
+                                List.of());
                 when(accommodationMapper.toDetailDTO(testAccommodation)).thenReturn(mockDetail);
 
                 AccommodationDetailResponseDTO result = accommodationService.getAccommodationByCode("ARM-ABC123");
@@ -215,14 +220,15 @@ public class AccommodationServiceTest {
                 testAccommodation.setTitle("Old Title");
                 edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationUpdateRequestDTO request =
                                 new edu.uniquindio.stayhub_v2.dto.accommodation.AccommodationUpdateRequestDTO(
-                                        "New Title", null, null, null, null, null, null, null, null, null, null, null, null);
+                                        "New Title", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
                 when(accommodationRepository.findByIdAndDeletedFalse(100L)).thenReturn(Optional.of(testAccommodation));
                 when(accommodationRepository.save(testAccommodation)).thenReturn(testAccommodation);
                 AccommodationDetailResponseDTO mockDetail = new AccommodationDetailResponseDTO(
                                 100L, "ARM-ABC123", "New Title", "Armenia", 4, "COP",
                                 BigDecimal.valueOf(100000), null, true, "Desc",
-                                null, -75.0, 4.5, "Near park", List.of(), null, null, null);
+                                null, -75.0, 4.5, "Near park", List.of(), null, null, null, RentalType.CASA_ENTERA,
+                                List.of());
                 when(accommodationMapper.toDetailDTO(testAccommodation)).thenReturn(mockDetail);
 
                 AccommodationDetailResponseDTO result = accommodationService.updateAccommodation(100L, request, "host@example.com");
@@ -238,7 +244,7 @@ public class AccommodationServiceTest {
                 Page<Accommodation> page = new PageImpl<>(List.of(testAccommodation), PageRequest.of(0, 10), 1);
                 when(accommodationRepository.findByHostEmailAndDeletedFalse(eq("host@example.com"), any())).thenReturn(page);
                 AccommodationSummaryResponseDTO summaryDTO = new AccommodationSummaryResponseDTO(
-                                100L, "ARM-ABC123", "Test", "Armenia", 4, "COP", BigDecimal.valueOf(100000), null, true);
+                                100L, "ARM-ABC123", "Test", "Armenia", 4, "COP", BigDecimal.valueOf(100000), null, true, RentalType.CASA_ENTERA, List.of());
                 when(accommodationMapper.toSummaryDTO(testAccommodation)).thenReturn(summaryDTO);
 
                 Page<AccommodationSummaryResponseDTO> result = accommodationService.listMyAccommodations(0, false);

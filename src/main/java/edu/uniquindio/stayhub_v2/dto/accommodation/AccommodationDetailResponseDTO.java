@@ -28,5 +28,6 @@ public record AccommodationDetailResponseDTO(
         AccommodationLegalInfoDTO legal,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        RentalType rentalType
+        RentalType rentalType,
+        List<AccommodationServiceDTO> services
 ) {}

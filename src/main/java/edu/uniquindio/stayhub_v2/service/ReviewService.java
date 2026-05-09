@@ -4,6 +4,7 @@ import edu.uniquindio.stayhub_v2.dto.review.ReviewCreateRequest;
 import edu.uniquindio.stayhub_v2.dto.review.ReviewDTO;
 import edu.uniquindio.stayhub_v2.dto.review.ReviewHostResponseRequest;
 import edu.uniquindio.stayhub_v2.dto.review.UserPublicDTO;
+import edu.uniquindio.stayhub_v2.model.NotificationType;
 import edu.uniquindio.stayhub_v2.model.Reservation;
 import edu.uniquindio.stayhub_v2.model.ReservationStatus;
 import edu.uniquindio.stayhub_v2.model.Review;
@@ -30,6 +31,7 @@ public class ReviewService {
     private final ReservationRepository reservationRepository;
     private final AccommodationRepository accommodationRepository;
     private final UserService userService;
+    private final NotificationService notificationService;
 
     @Transactional
     public ReviewDTO create(ReviewCreateRequest req) {
@@ -57,7 +59,18 @@ public class ReviewService {
                 .comment(req.comment())
                 .build();
 
-        return toDTO(reviewRepository.save(review));
+        Review saved = reviewRepository.save(review);
+        notificationService.createNotification(
+                reservation.getAccommodation().getHost().getId(),
+                NotificationType.REVIEW_CREATED,
+                "Nuevo comentario recibido",
+                String.format(
+                        "%s dejó una valoración de %s estrellas para %s.",
+                        currentUser.getFullName(),
+                        req.rating(),
+                        reservation.getAccommodation().getTitle()));
+
+        return toDTO(saved);
     }
 
     @Transactional(readOnly = true)

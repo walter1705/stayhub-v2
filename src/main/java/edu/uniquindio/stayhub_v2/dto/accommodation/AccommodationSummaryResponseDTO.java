@@ -35,5 +35,8 @@ public record AccommodationSummaryResponseDTO(
         boolean available,
 
         @Schema(description = "Rental type", example = "CASA_ENTERA")
-        RentalType rentalType
+        RentalType rentalType,
+
+        @Schema(description = "Named services and quantities available in the property")
+        java.util.List<AccommodationServiceDTO> services
 ) {}

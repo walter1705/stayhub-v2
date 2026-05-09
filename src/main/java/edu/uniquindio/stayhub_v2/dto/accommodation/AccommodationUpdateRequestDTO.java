@@ -43,5 +43,8 @@ public record AccommodationUpdateRequestDTO(
         @Valid
         AccommodationLegalInfoDTO legal,
 
-        RentalType rentalType
+        RentalType rentalType,
+
+        @Valid
+        List<AccommodationServiceDTO> services
 ) {}
